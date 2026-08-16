@@ -53,6 +53,10 @@ export default function CurriculumVitaeTest() {
     ],
   };
 
+  <style>{`
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
+      `}</style>
+
   return (
     <div style={{ padding: "20px", backgroundColor: "#f5f5f5", minHeight: "100vh" }}>
       <h1>CurriculumVitae Component Test</h1>

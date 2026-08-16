@@ -59,7 +59,7 @@ function DotRating({ rating, max = 5 }) {
     <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
       {Array.from({ length: max }).map((_, i) => (
         <div
-          key={i}
+          key={i} className="pdf-avoid-break"
           style={{
             width: 14,
             height: 14,
@@ -267,7 +267,7 @@ export function MemphisCV({ data = DEFAULT_DATA }) {
         </div>
         {skills.map((skill) => (
           <div
-            key={skill.name}
+            key={skill.name} className="pdf-avoid-break"
             style={{
               display: "flex",
               justifyContent: "space-between",
@@ -297,7 +297,7 @@ export function MemphisCV({ data = DEFAULT_DATA }) {
         <BorderBox>
           {education.map((edu, i) => (
             <div
-              key={i}
+              key={i} className="pdf-avoid-break"
               style={{
                 display: "flex",
                 gap: 12,
@@ -324,7 +324,7 @@ export function MemphisCV({ data = DEFAULT_DATA }) {
         <BorderBox>
           {experience.map((exp, i) => (
             <div
-              key={i}
+              key={i} className="pdf-avoid-break"
               style={{
                 display: "flex",
                 gap: 12,
@@ -361,6 +361,7 @@ export function MemphisCV({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;700;800;900&family=Nunito+Sans:wght@400;600;700&display=swap');
         .memphis-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       {/* Page wrapper — A4 proportions */}
@@ -391,7 +392,7 @@ export function MemphisCV({ data = DEFAULT_DATA }) {
           {/* Traffic light dots */}
           <div style={{ display: "flex", gap: 7 }}>
             {["#ff5f57", "#febc2e", "#28c840"].map((c, i) => (
-              <div key={i} style={{ width: 14, height: 14, borderRadius: "50%", background: c, border: "2px solid #111" }} />
+              <div key={i} className="pdf-avoid-break" style={{ width: 14, height: 14, borderRadius: "50%", background: c, border: "2px solid #111" }} />
             ))}
           </div>
           <span style={{ fontFamily: "'Nunito', sans-serif", fontWeight: 900, fontSize: 13, letterSpacing: 2, color: "#111" }}>

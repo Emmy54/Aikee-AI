@@ -88,7 +88,7 @@ export function ModernProfessionalCV3({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 22 }}>
         <SideHeading>Education</SideHeading>
         {education.map((edu, i) => (
-          <div key={i} style={{ marginBottom: 10 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 10 }}>
             <div style={{ fontWeight: 700, fontSize: 12.5, color: "#333" }}>{edu.school}</div>
             <div style={{ fontSize: 12, color: "#666" }}>{edu.degree}</div>
             <div style={{ fontSize: 11.5, color: "#999" }}>{edu.years}</div>
@@ -99,13 +99,13 @@ export function ModernProfessionalCV3({ data = DEFAULT_DATA }) {
     skills: (
       <div style={{ marginBottom: 22 }}>
         <SideHeading>Skills</SideHeading>
-        {skills.map(s => <div key={s} style={{ fontSize: 12.5, color: "#333", marginBottom: 5 }}>{s}</div>)}
+        {skills.map(s => <div key={s} className="pdf-avoid-break" style={{ fontSize: 12.5, color: "#333", marginBottom: 5 }}>{s}</div>)}
       </div>
     ),
     languages: (
       <div>
         <SideHeading>Language</SideHeading>
-        {languages.map(l => <div key={l} style={{ fontSize: 12.5, color: "#333", marginBottom: 5 }}>{l}</div>)}
+        {languages.map(l => <div key={l} className="pdf-avoid-break" style={{ fontSize: 12.5, color: "#333", marginBottom: 5 }}>{l}</div>)}
       </div>
     ),
     about: (
@@ -118,7 +118,7 @@ export function ModernProfessionalCV3({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 24 }}>
         <MainHeading>Experience</MainHeading>
         {experience.map((exp, i) => (
-          <div key={i} style={{ marginBottom: i < experience.length - 1 ? 18 : 0, paddingBottom: i < experience.length - 1 ? 18 : 0, borderBottom: i < experience.length - 1 ? `1px solid ${RULE}` : "none" }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: i < experience.length - 1 ? 18 : 0, paddingBottom: i < experience.length - 1 ? 18 : 0, borderBottom: i < experience.length - 1 ? `1px solid ${RULE}` : "none" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
               <span style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{exp.company}</span>
               <span style={{ fontSize: 12, color: MID }}>{exp.years}</span>
@@ -134,7 +134,7 @@ export function ModernProfessionalCV3({ data = DEFAULT_DATA }) {
         <MainHeading>References</MainHeading>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           {references.map((ref, i) => (
-            <div key={i}>
+            <div key={i} className="pdf-avoid-break">
               <div style={{ fontWeight: 700, fontSize: 13.5, color: DARK, marginBottom: 2 }}>{ref.name}</div>
               <div style={{ fontSize: 12, color: MID, marginBottom: 5 }}>{ref.company}</div>
               <div style={{ fontSize: 12, color: "#333", marginBottom: 2 }}><strong>Phone: </strong>{ref.phone}</div>
@@ -157,7 +157,9 @@ export function ModernProfessionalCV3({ data = DEFAULT_DATA }) {
 
   return (
     <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Lato:wght@300;400;700&display=swap'); .mp3-cv * { box-sizing: border-box; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Lato:wght@300;400;700&display=swap'); .mp3-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
+      `}</style>
       <div className="mp3-cv" style={{ width: 700, minHeight: 1020, background: WHITE, fontFamily: "'Lato', sans-serif", color: DARK }}>
 
         {/* Header */}

@@ -2,14 +2,30 @@
 // Simplifies common database operations with error handling
 
 import { supabase } from '../../lib/supabaseClient';
-import crypto from 'crypto';
 
 /**
  * Hash input string for AI cache matching
- * Allows deduplication based on content, not exact string match
+ * Allows deduplication based on content, not exact string match.
+ *
+ * Uses a synchronous FNV-1a hash (browser-safe — no Node 'crypto' dependency).
+ * Cache keys only need stable dedup, not cryptographic strength.
  */
 export const hashInput = (input) => {
-  return crypto.createHash('md5').update(JSON.stringify(input)).digest('hex');
+  const str = JSON.stringify(input);
+  // FNV-1a 32-bit
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  // Widen to 16 hex chars by mixing in a second pass for fewer collisions
+  let h2 = 0xc9dc5118;
+  for (let i = str.length - 1; i >= 0; i--) {
+    h2 ^= str.charCodeAt(i);
+    h2 = Math.imul(h2, 0x01000193);
+  }
+  const toHex = (n) => (n >>> 0).toString(16).padStart(8, '0');
+  return toHex(h) + toHex(h2);
 };
 
 /**
@@ -284,19 +300,22 @@ export const withCache = async (cacheType, aiFunction, input) => {
     } else {
       console.log(`[CACHE] ⚠️  Cache check failed (${cacheResult.error}) - calling AI API as fallback`);
     }
-    
-    const aiResult = await aiFunction(input);
 
-    if (!aiResult || !aiResult.success) {
-      const errorMsg = aiResult?.error || 'AI function failed';
-      console.error(`[CACHE] ❌ AI function failed: ${errorMsg}`);
-      throw new Error(errorMsg);
+    // Call the AI function. By contract every _*API function in this app returns
+    // the RAW result (array / string / object) on success and THROWS on error.
+    // Do NOT expect a { success, data } wrapper here — that is withCache's own
+    // return shape, not the aiFunction's. (Checking aiResult.success against a
+    // raw array silently failed every cache miss for both Groq and Gemini.)
+    const aiData = await aiFunction(input);
+
+    if (aiData === null || aiData === undefined) {
+      throw new Error('AI function returned no data');
     }
 
     console.log(`[CACHE] 🤖 AI API succeeded, attempting to save to cache...`);
-    
+
     // Save to cache (don't fail if cache save doesn't work)
-    const saveResult = await cacheOperations.saveCache(cacheType, input, aiResult.data);
+    const saveResult = await cacheOperations.saveCache(cacheType, input, aiData);
     if (saveResult.success) {
       console.log(`[CACHE] ✅ Successfully cached result`);
     } else {
@@ -305,7 +324,7 @@ export const withCache = async (cacheType, aiFunction, input) => {
 
     return {
       success: true,
-      data: aiResult.data,
+      data: aiData,
       fromCache: false,
     };
   } catch (error) {
@@ -335,18 +354,28 @@ export const getUserStats = async () => {
 export const userProfileOperations = {
   /**
    * Get user profile
+   *
+   * @param {Object|null} authUser - Optional already-authenticated user object.
+   *   Pass this when calling from inside supabase.auth.onAuthStateChange (or right
+   *   after getSession) to AVOID calling supabase.auth.getUser() again — doing so
+   *   inside the auth callback re-acquires the GoTrue lock and deadlocks, which
+   *   leaves loading spinners stuck forever. When omitted, falls back to getUser().
    */
-  async getUserProfile() {
+  async getUserProfile(authUser = null) {
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError || !user) {
-        return { success: false, error: 'User not authenticated' };
+      let user = authUser;
+      if (!user) {
+        const { data: { user: fetchedUser }, error: userError } = await supabase.auth.getUser();
+        if (userError || !fetchedUser) {
+          return { success: false, error: 'User not authenticated' };
+        }
+        user = fetchedUser;
       }
 
       const { data, error } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single();
 
       if (error && error.code !== 'PGRST116') {
@@ -371,15 +400,15 @@ export const userProfileOperations = {
       }
 
       const { data, error } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .upsert({
-          id: user.id,
+          user_id: user.id,
           email: user.email,
           first_name: firstName,
           last_name: lastName,
           avatar_url: avatarUrl,
           updated_at: new Date(),
-        }, { onConflict: 'id' })
+        }, { onConflict: 'user_id' })
         .select()
         .single();
 
@@ -403,9 +432,9 @@ export const userProfileOperations = {
       }
 
       const { data, error } = await supabase
-        .from('user_profiles')
+        .from('profiles')
         .update({ first_name: firstName, last_name: lastName, updated_at: new Date() })
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .select()
         .single();
 

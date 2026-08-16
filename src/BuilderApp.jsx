@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo, useDeferredValue } from "react";
 import html2pdf from "html2pdf.js";
 import { supabase } from "../lib/supabaseClient";
 import { cvOperations } from "./utils/databaseHelpers";
@@ -37,17 +37,22 @@ import ExtraStep from "./components/steps/ExtraStep";
 import AwardsStep from "./components/steps/AwardsStep";
 import ActivitiesStep from "./components/steps/ActivitiesStep";
 import CVPreview from "./components/preview/CVPreview";
+import LiveCVPreview from "./components/preview/LiveCVPreview";
 import HeadshotGenerator from "./components/pages/HeadshotGenerator";
 import SaveCVModal from "./components/modals/SaveCVModal";
 import LoadCVModal from "./components/modals/LoadCVModal";
-import DebugAuthStatus from "./components/DebugAuthStatus";
+// import DebugAuthStatus from "./components/DebugAuthStatus";
 
 export default function BuilderApp({ initialUser }) {
   const STORAGE_KEY = "cv-builder-ai-form-v1";
   
-  // Authentication state - use initialUser from parent
+  // Authentication state - use initialUser from parent.
+  // BuilderApp only mounts after AppRoutes' ProtectedRoute has already verified
+  // auth and handed us initialUser, so don't block on our own check when it's
+  // present — otherwise a reload leaves authLoading stuck true (infinite spinner)
+  // if the onAuthStateChange event is slow or deferred.
   const [user, setUser] = useState(initialUser);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(!initialUser);
   
   // Navigation state
   const [mode, setMode] = useState("cv-builder"); // "cv-builder" or "headshot-generator"
@@ -55,6 +60,38 @@ export default function BuilderApp({ initialUser }) {
   const [generating, setGenerating] = useState(false);
   const [geminiAvailable, setGeminiAvailable] = useState(false);
   const [groqAvailable, setGroqAvailable] = useState(false);
+
+  // Which pane is visible below the two-pane breakpoint (1024px)
+  const [mobileView, setMobileView] = useState("form"); // "form" | "preview"
+
+  // Mirrors the 1023px CSS breakpoint. Needed because a display:none pane reports
+  // clientWidth 0 and ResizeObserver never fires for it — the scale hook has to know
+  // whether the preview is actually on screen.
+  const [isNarrow, setIsNarrow] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const onChange = (e) => setIsNarrow(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  // Selecting a template also pins its folder, so a choice made in the live pane
+  // survives into the final step (which filters the registry by selectedFolder).
+  const handleSelectTemplate = (templateId, folder) => {
+    setSelectedTemplate(templateId);
+    if (folder) setSelectedFolder(folder);
+  };
+
+  // Template selection lives here (not in CVPreview) so a template chosen in the
+  // live preview pane carries through to the final review step.
+  const [selectedFolder, setSelectedFolder] = useState("Modern");
+  // Must be a real id from the registry in cvTemplateEngine.jsx. The previous default
+  // ("modern-standard") matched nothing and only worked via the fallback-to-first path.
+  const [selectedTemplate, setSelectedTemplate] = useState("modern-geo");
 
   // Modal states
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -452,6 +489,10 @@ export default function BuilderApp({ initialUser }) {
 
   const stepKey = steps[step];
   const stepTitle = STEP_LABELS[stepKey] || stepKey;
+  // The final review step keeps the full-width layout (it already is a preview, and it
+  // owns the template gallery + PDF export). This also guarantees #cv-preview and
+  // #live-cv-preview are never in the DOM at the same time.
+  const isFinalStep = stepKey === "preview";
   const { questions: baseQuestions, usedDefault: usedDefaultQuestions } = getQuestionsForRoleMeta(
     jobTitle,
     experienceLevel
@@ -470,27 +511,34 @@ export default function BuilderApp({ initialUser }) {
     let cancelled = false;
     setLoadingRoleQuestions(true);
 
-    generateRoleQuestionsWithGroq(trimmedRole, experienceLevel, baseQuestions.length)
-      .then((generated) => {
-        if (cancelled) return;
-        if (Array.isArray(generated) && generated.length > 0) {
-          setRoleQuestions(generated);
-        } else {
+    // Debounce: jobTitle changes on every keystroke, so this effect reruns for
+    // each character. Wait until the user pauses before calling Groq — otherwise
+    // every keystroke fires its own request and they rate-limit each other (429).
+    // The cleanup below clears the pending timer, so only the last edit fires.
+    const debounceId = setTimeout(() => {
+      generateRoleQuestionsWithGroq(trimmedRole, experienceLevel, baseQuestions.length)
+        .then((generated) => {
+          if (cancelled) return;
+          if (Array.isArray(generated) && generated.length > 0) {
+            setRoleQuestions(generated);
+          } else {
+            setRoleQuestions([]);
+          }
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          console.warn("Failed to generate role questions:", error);
           setRoleQuestions([]);
-        }
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        console.warn("Failed to generate role questions:", error);
-        setRoleQuestions([]);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoadingRoleQuestions(false);
-      });
+        })
+        .finally(() => {
+          if (cancelled) return;
+          setLoadingRoleQuestions(false);
+        });
+    }, 700);
 
     return () => {
       cancelled = true;
+      clearTimeout(debounceId);
     };
   }, [jobTitle, experienceLevel, groqAvailable, usedDefaultQuestions, baseQuestions.length]);
   const fullAIInputSignature = JSON.stringify({
@@ -513,6 +561,48 @@ export default function BuilderApp({ initialUser }) {
     );
 
   const allSkills = [...new Set([...suggestedSkills, ...selectedSkills])];
+
+  // ============================================================================
+  // LIVE PREVIEW SNAPSHOT
+  // ============================================================================
+
+  // A stable, memoized view of the CV for the preview panes. Memoizing matters:
+  // it is what lets useDeferredValue below and the engine's internal useMemo
+  // actually skip work instead of rebuilding every template on every keystroke.
+  const summaryText = professionalSummary || generatedSummary;
+  const allSkillsKey = allSkills.join("|");
+  const cvSnapshot = useMemo(
+    () => ({
+      name,
+      jobTitle,
+      email,
+      phone,
+      address,
+      photoPreview,
+      summary: summaryText,
+      allSkills,
+      experiences,
+      educations,
+      certifications,
+      languages,
+      references,
+      projects,
+      projectBullets,
+      awards,
+      experienceBullets,
+    }),
+    // allSkills is derived and gets a fresh identity each render, so depend on its
+    // serialized form rather than the array itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      name, jobTitle, email, phone, address, photoPreview, summaryText, allSkillsKey,
+      experiences, educations, certifications, languages, references, projects,
+      projectBullets, awards, experienceBullets,
+    ]
+  );
+
+  // Keeps typing on the high-priority path; the heavy template render is interruptible.
+  const deferredCV = useDeferredValue(cvSnapshot);
 
   // ============================================================================
   // GEMINI INTEGRATION: Generate Skills from Q&A Answers
@@ -751,7 +841,7 @@ export default function BuilderApp({ initialUser }) {
             format: "a4",
             orientation: "portrait",
           },
-          pagebreak: { mode: ["css", "avoid-all", "legacy"] },
+          pagebreak: { mode: ["css"] },
         })
         .from(element)
         .save();
@@ -903,6 +993,29 @@ export default function BuilderApp({ initialUser }) {
         />
 
         <main className="main">
+          <div
+            className={isFinalStep ? undefined : "builder-split"}
+            data-mobile-view={isFinalStep ? undefined : mobileView}
+            style={isFinalStep ? { width: "100%", display: "flex", justifyContent: "center" } : undefined}
+          >
+            {!isFinalStep && (
+              <div className="builder-mobile-switch" style={{ gridColumn: "1 / -1" }}>
+                <button
+                  className={mobileView === "form" ? "active" : ""}
+                  onClick={() => setMobileView("form")}
+                >
+                  ✏️ Questions
+                </button>
+                <button
+                  className={mobileView === "preview" ? "active" : ""}
+                  onClick={() => setMobileView("preview")}
+                >
+                  👁 Preview
+                </button>
+              </div>
+            )}
+
+            <div className={isFinalStep ? undefined : "builder-pane-form"}>
           {stepKey === "target" && (
             <JobTargetStep
               stepNumber={step + 1}
@@ -1138,14 +1251,33 @@ export default function BuilderApp({ initialUser }) {
               loadingPDF={loadingPDF}
               next={next}
               back={back}
+              selectedFolder={selectedFolder}
+              selectedTemplate={selectedTemplate}
+              onSelectFolder={setSelectedFolder}
+              onSelectTemplate={setSelectedTemplate}
             />
           )}
+            </div>
+
+            {!isFinalStep && (
+              <aside className="builder-pane-preview">
+                <LiveCVPreview
+                  cv={deferredCV}
+                  experienceLevel={experienceLevel}
+                  selectedFolder={selectedFolder}
+                  selectedTemplate={selectedTemplate}
+                  onSelectTemplate={handleSelectTemplate}
+                  active={mobileView === "preview" || !isNarrow}
+                />
+              </aside>
+            )}
+          </div>
         </main>
       </div>
 
       {generating && (
         <div style={{ position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.7)", zIndex: 1000 }}>
-          <div style={{ backgroundColor: colors.card, padding: 40, borderRadius: 12, textAlign: "center" }}>
+          <div style={{ backgroundColor: colors.surfaceContainerLowest, padding: 40, borderRadius: 12, textAlign: "center" }}>
             <div className="gen-text">
               <strong>✨ Generating Your CV...</strong>
               <p>Hold tight, your AI-powered CV is being prepared.</p>
@@ -1171,7 +1303,7 @@ export default function BuilderApp({ initialUser }) {
         savedCVs={savedCVs}
       />
 
-      <DebugAuthStatus />
+      {/* <DebugAuthStatus /> */}
     </>
   );
 }

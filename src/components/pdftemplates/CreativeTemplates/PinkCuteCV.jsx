@@ -96,7 +96,7 @@ export function PinkCuteCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 28 }}>
         <SectionHeading>Education</SectionHeading>
         {safeEducation.map((edu, i) => (
-          <div key={i} style={{ marginBottom: 14 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 13, color: DARK, marginBottom: 1 }}>{edu.school}</div>
             <div style={{ fontSize: 12, color: "#666" }}>{edu.degree}</div>
             <div style={{ fontWeight: 700, fontSize: 12, color: DARK, marginTop: 2 }}>{edu.years}</div>
@@ -108,7 +108,7 @@ export function PinkCuteCV({ data = DEFAULT_DATA }) {
       <div>
         <SectionHeading>Experience</SectionHeading>
         {safeExperience.map((exp, i) => (
-          <div key={i} style={{
+          <div key={i} className="pdf-avoid-break" style={{
             display: "flex",
             gap: 12,
             alignItems: "flex-start",
@@ -138,7 +138,7 @@ export function PinkCuteCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 28 }}>
         <SectionHeading>Skills</SectionHeading>
         {safeSkills.map((skill) => (
-          <div key={skill} style={{
+          <div key={skill} className="pdf-avoid-break" style={{
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -159,7 +159,7 @@ export function PinkCuteCV({ data = DEFAULT_DATA }) {
       <div>
         <SectionHeading>Certifications</SectionHeading>
         {safeCertifications.map((cert, i) => (
-          <div key={i} style={{ marginBottom: 16 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 16 }}>
             <div style={{
               display: "flex",
               justifyContent: "space-between",
@@ -187,6 +187,7 @@ export function PinkCuteCV({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Mulish:wght@300;400;600;700&display=swap');
         .pink-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="pink-cv" style={{
@@ -284,7 +285,7 @@ export function PinkCuteCV({ data = DEFAULT_DATA }) {
             { icon: "📍", text: address },
             { icon: "✉", text: email },
           ].map(({ icon, text }) => (
-            <div key={text} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "#333" }}>
+            <div key={text} className="pdf-avoid-break" style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "#333" }}>
               <span style={{ fontSize: 14, color: PINK_TEXT }}>{icon}</span>
               <span>{text}</span>
             </div>

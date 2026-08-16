@@ -103,7 +103,7 @@ function Entry({ company, role, years, bullets }) {
       </div>
       {role && <div style={{ fontSize: 12, color: MID, fontStyle: "italic", marginBottom: 6 }}>{role}</div>}
       {bullets?.map((b, i) => (
-        <div key={i} style={{ display: "flex", gap: 8, fontSize: 12, color: MID, lineHeight: 1.6, marginBottom: 5 }}>
+        <div key={i} className="pdf-avoid-break" style={{ display: "flex", gap: 8, fontSize: 12, color: MID, lineHeight: 1.6, marginBottom: 5 }}>
           <span style={{ color: DARK, flexShrink: 0 }}>•</span><span>{b}</span>
         </div>
       ))}
@@ -170,7 +170,7 @@ export function ModernStudentCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 22 }}>
         <SideHeading>Contact</SideHeading>
         {contactItems.map(({ icon, text }) => (
-          <div key={`${icon}-${text}`} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 9 }}>
+          <div key={`${icon} className="pdf-avoid-break"-${text}`} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 9 }}>
             <span style={{ fontSize: 13, color: MID, flexShrink: 0, marginTop: 1 }}>{icon}</span>
             <span style={{ fontSize: 12, color: MID, lineHeight: 1.4 }}>{text}</span>
           </div>
@@ -181,7 +181,7 @@ export function ModernStudentCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 22 }}>
         <SideHeading>Education</SideHeading>
         {safeEducation.map((e, i) => (
-          <div key={i} style={{ marginBottom: 12 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 12 }}>
             <div style={{ display: "inline-block", background: PILL, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, color: DARK, marginBottom: 3 }}>{e.years}</div>
             <div style={{ fontWeight: 700, fontSize: 12.5, color: DARK }}>{e.school}</div>
             <div style={{ fontSize: 11.5, color: MID }}>{e.degree}</div>
@@ -192,13 +192,13 @@ export function ModernStudentCV({ data = DEFAULT_DATA }) {
     skills: (
       <div style={{ marginBottom: 22 }}>
         <SideHeading>Skills</SideHeading>
-        {safeSkills.map((s) => <div key={s} style={{ fontSize: 12.5, color: MID, marginBottom: 6 }}>{s}</div>)}
+        {safeSkills.map((s) => <div key={s} className="pdf-avoid-break" style={{ fontSize: 12.5, color: MID, marginBottom: 6 }}>{s}</div>)}
       </div>
     ),
     languages: (
       <div>
         <SideHeading>Language</SideHeading>
-        {safeLanguages.map((l) => <div key={l} style={{ fontSize: 12.5, color: MID, marginBottom: 5 }}>{l}</div>)}
+        {safeLanguages.map((l) => <div key={l} className="pdf-avoid-break" style={{ fontSize: 12.5, color: MID, marginBottom: 5 }}>{l}</div>)}
       </div>
     ),
     summary: (
@@ -223,7 +223,7 @@ export function ModernStudentCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 22 }}>
         <MainHeading>Certifications</MainHeading>
         {safeCertifications.map((c, i) => (
-          <div key={i} style={{ marginBottom: 10 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <span style={{ fontWeight: 400, fontSize: 13, color: DARK }}>{c.name}</span>
               <span style={{ fontSize: 11.5, color: LIGHT }}>{c.years}</span>
@@ -238,7 +238,7 @@ export function ModernStudentCV({ data = DEFAULT_DATA }) {
         <MainHeading>References</MainHeading>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           {safeReferences.map((ref, i) => (
-            <div key={i}>
+            <div key={i} className="pdf-avoid-break">
               <div style={{ fontWeight: 700, fontSize: 13.5, color: DARK, marginBottom: 2 }}>{ref.name}</div>
               <div style={{ fontSize: 12, color: MID, marginBottom: 5 }}>{ref.company}</div>
               {ref.phone && <div style={{ fontSize: 12, color: DARK, marginBottom: 2 }}><strong>Phone: </strong>{ref.phone}</div>}
@@ -255,6 +255,7 @@ export function ModernStudentCV({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=Lato:wght@300;400;700&display=swap');
         .msc-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="msc-cv" style={{ width: 700, minHeight: 1060, background: WHITE, fontFamily: "'Lato', sans-serif", color: DARK }}>

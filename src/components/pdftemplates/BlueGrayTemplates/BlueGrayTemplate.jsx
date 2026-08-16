@@ -50,7 +50,7 @@ function BlueGrayTemplate({ name, jobTitle, summary, phone, email, website, addr
           Experience
         </h3>
         {experiences.map((exp, idx) => (
-          <div key={idx} style={{ marginBottom: 12 }}>
+          <div key={idx} className="pdf-avoid-break" style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
               <h4
                 style={{
@@ -102,7 +102,7 @@ function BlueGrayTemplate({ name, jobTitle, summary, phone, email, website, addr
           Education
         </h3>
         {educations.map((edu, idx) => (
-          <div key={idx} style={{ marginBottom: 10 }}>
+          <div key={idx} className="pdf-avoid-break" style={{ marginBottom: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <h4
                 style={{
@@ -154,7 +154,7 @@ function BlueGrayTemplate({ name, jobTitle, summary, phone, email, website, addr
         </h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           {skills.map((skill, idx) => (
-            <div key={idx} style={{ fontSize: 10, color: accentColor }}>
+            <div key={idx} className="pdf-avoid-break" style={{ fontSize: 10, color: accentColor }}>
               • {skill.name}
             </div>
           ))}
@@ -167,6 +167,10 @@ function BlueGrayTemplate({ name, jobTitle, summary, phone, email, website, addr
     { summary, experiences, educations, skills },
     { sidebar: [], main: ["summary", "experience", "education", "skills"], minMain: 2 }
   );
+
+  <style>{`
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
+      `}</style>
 
   return (
     <div className="flex overflow-hidden flex-col justify-center items-center bg-white h-[842px] w-[596px]">

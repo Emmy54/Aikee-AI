@@ -80,13 +80,13 @@ export function GrayRedMinimalistCV({ data = DEFAULT_DATA }) {
     ),
     skills: (
       <SideSection title="SKILLS">
-        {skills.map(s => <div key={s} style={{ fontSize: 12.5, color: DARK, marginBottom: 7, paddingLeft: 2 }}>{s}</div>)}
+        {skills.map(s => <div key={s} className="pdf-avoid-break" style={{ fontSize: 12.5, color: DARK, marginBottom: 7, paddingLeft: 2 }}>{s}</div>)}
       </SideSection>
     ),
     education: (
       <SideSection title="EDUCATION">
         {education.map((e, i) => (
-          <div key={i} style={{ marginBottom: 12 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 12.5, color: DARK }}>{e.level}</div>
             <div style={{ fontSize: 12, color: "#666" }}>{e.school}</div>
             <div style={{ fontSize: 11.5, color: "#999" }}>{e.years}</div>
@@ -99,7 +99,7 @@ export function GrayRedMinimalistCV({ data = DEFAULT_DATA }) {
         <RedBadge>CONTACT</RedBadge>
         <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
           {[{ icon: "📞", t: phone }, { icon: "✉", t: email }, { icon: "📍", t: address }].filter(({ t }) => t).map(({ icon, t }) => (
-            <div key={t} style={{ display: "flex", gap: 7, alignItems: "center", fontSize: 12.5, color: DARK }}>
+            <div key={t} className="pdf-avoid-break" style={{ display: "flex", gap: 7, alignItems: "center", fontSize: 12.5, color: DARK }}>
               <div style={{ width: 22, height: 22, borderRadius: "50%", background: RED, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>{icon}</div>
               <span>{t}</span>
             </div>
@@ -111,11 +111,11 @@ export function GrayRedMinimalistCV({ data = DEFAULT_DATA }) {
       <>
         <RedBadge>EXPERIENCE</RedBadge>
         {experience.map((exp, i) => (
-          <div key={i} style={{ marginBottom: 20 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 20 }}>
             <div style={{ fontWeight: 700, fontSize: 13, color: DARK, letterSpacing: 0.5, marginBottom: 1 }}>{exp.role}</div>
             <div style={{ fontSize: 12, color: "#888", marginBottom: 7 }}>{exp.company}<br />{exp.years}</div>
             {exp.bullets.map((b, j) => (
-              <div key={j} style={{ display: "flex", gap: 8, fontSize: 12, color: "#333", lineHeight: 1.6, marginBottom: 4 }}>
+              <div key={j} className="pdf-avoid-break" style={{ display: "flex", gap: 8, fontSize: 12, color: "#333", lineHeight: 1.6, marginBottom: 4 }}>
                 <span style={{ color: RED, flexShrink: 0 }}>•</span><span>{b}</span>
               </div>
             ))}
@@ -132,7 +132,9 @@ export function GrayRedMinimalistCV({ data = DEFAULT_DATA }) {
 
   return (
     <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap'); .grm-cv * { box-sizing: border-box; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap'); .grm-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
+      `}</style>
       <div className="grm-cv" style={{ width: 680, minHeight: 980, background: GRAY, fontFamily: "'Barlow', sans-serif", color: DARK }}>
 
         {/* Header */}

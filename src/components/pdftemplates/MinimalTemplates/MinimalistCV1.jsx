@@ -186,7 +186,7 @@ export function MinimalistCV1({ data = DEFAULT_DATA }) {
           { icon: "🌐", text: website },
           { icon: "✉", text: email },
         ].filter((item) => item.text).map((item, i) => (
-          <div key={item.icon} style={{
+          <div key={item.icon} className="pdf-avoid-break" style={{
             flex: 1,
             display: "flex",
             alignItems: "center",
@@ -212,7 +212,7 @@ export function MinimalistCV1({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 28 }}>
         <SidebarHeading>Education</SidebarHeading>
         {education.map((edu, i) => (
-          <div key={i} style={{ marginBottom: 14 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 12.5, color: NAVY }}>{edu.school}</div>
             <div style={{ fontSize: 12, color: "#555" }}>{edu.degree}</div>
             <div style={{ fontSize: 11.5, color: "#888", marginTop: 1 }}>{edu.years}</div>
@@ -240,7 +240,7 @@ export function MinimalistCV1({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 28 }}>
         <SectionHeading>Work Experience</SectionHeading>
         {experience.map((exp, i) => (
-          <div key={i} style={{ marginBottom: i < experience.length - 1 ? 18 : 0 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: i < experience.length - 1 ? 18 : 0 }}>
             <div style={{
               display: "flex",
               justifyContent: "space-between",
@@ -279,7 +279,7 @@ export function MinimalistCV1({ data = DEFAULT_DATA }) {
           marginTop: 6,
         }}>
           {references.map((ref, i) => (
-            <div key={i}>
+            <div key={i} className="pdf-avoid-break">
               <div style={{
                 fontWeight: 600,
                 fontSize: 13.5,
@@ -309,6 +309,10 @@ export function MinimalistCV1({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap');
         .min1-cv * { box-sizing: border-box; }
+        .min1-cv .pdf-avoid-break {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
       `}</style>
 
       <div

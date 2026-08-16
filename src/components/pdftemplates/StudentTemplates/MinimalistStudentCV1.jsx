@@ -223,7 +223,7 @@ export function MinimalistStudentCV1({ data = DEFAULT_DATA }) {
         <SideHeading>Education</SideHeading>
         <div style={{ marginTop: 12 }}>
           {safeEducation.map((edu, i) => (
-            <div key={i} style={{ marginBottom: 14 }}>
+            <div key={i} className="pdf-avoid-break" style={{ marginBottom: 14 }}>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 12, color: MID, marginBottom: 1 }}>{edu.years}</div>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: 13, color: NAVY, marginBottom: 4 }}>{edu.school}</div>
               <BulletList items={edu.bullets || []} />
@@ -277,7 +277,7 @@ export function MinimalistStudentCV1({ data = DEFAULT_DATA }) {
         <SectionHeading>Reference</SectionHeading>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 4 }}>
           {safeReferences.map((ref, i) => (
-            <div key={i}>
+            <div key={i} className="pdf-avoid-break">
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 13, color: NAVY, marginBottom: 2 }}>{ref.name}</div>
               <div style={{ fontSize: 12, color: MID, marginBottom: 5 }}>{ref.company}</div>
               {ref.phone && <div style={{ fontSize: 12, color: DARK, marginBottom: 2 }}><strong>Phone: </strong>{ref.phone}</div>}
@@ -294,6 +294,7 @@ export function MinimalistStudentCV1({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap');
         .msc1-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="msc1-cv" style={{
@@ -330,7 +331,7 @@ export function MinimalistStudentCV1({ data = DEFAULT_DATA }) {
             padding: "9px 20px",
           }}>
             {contactItems.map((item, i) => (
-              <div key={item.icon} style={{
+              <div key={item.icon} className="pdf-avoid-break" style={{
                 flex: 1,
                 display: "flex", alignItems: "center", gap: 8,
                 fontSize: 11.5, color: MID,

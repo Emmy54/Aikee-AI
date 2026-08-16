@@ -158,7 +158,7 @@ export function ProfessionalModernCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 24 }}>
         <SectionHeading>Education</SectionHeading>
         {education.map((edu, i) => (
-          <div key={i} style={{ marginBottom: 14 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11.5, color: "#777", marginBottom: 1 }}>{edu.years}</div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 13, color: DARK }}>{edu.degree}</div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 12, color: GRAY_DARK, marginBottom: 4 }}>{edu.school}</div>
@@ -190,7 +190,7 @@ export function ProfessionalModernCV({ data = DEFAULT_DATA }) {
         <SectionHeading>Contact</SectionHeading>
         <div style={{ marginTop: 8 }}>
           {contact.map(({ icon, text }) => (
-            <div key={text} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
+            <div key={text} className="pdf-avoid-break" style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 8 }}>
               <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>{icon}</span>
               <span style={{ fontSize: 12, color: "#333", lineHeight: 1.4 }}>{text}</span>
             </div>
@@ -226,7 +226,7 @@ export function ProfessionalModernCV({ data = DEFAULT_DATA }) {
           marginTop: 8,
         }}>
           {references.map((ref, i) => (
-            <div key={i}>
+            <div key={i} className="pdf-avoid-break">
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700, fontSize: 13, color: DARK, marginBottom: 2 }}>{ref.name}</div>
               <div style={{ fontSize: 12, color: GRAY_DARK, marginBottom: 5 }}>{ref.company}</div>
               <div style={{ fontSize: 12, color: "#333", marginBottom: 2 }}>
@@ -259,6 +259,7 @@ export function ProfessionalModernCV({ data = DEFAULT_DATA }) {
         .promod-cv ul { margin: 0; padding: 0; list-style: none; }
         .promod-cv li { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; color: #333; line-height: 1.5; margin-bottom: 5px; }
         .promod-cv li::before { content: "•"; color: ${DARK}; flex-shrink: 0; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="promod-cv" style={{

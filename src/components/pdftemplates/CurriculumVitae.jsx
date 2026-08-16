@@ -3,6 +3,10 @@ import Section from "../common/Section";
 import { useDynamicSections } from "../../utils/sectioning";
 
 function SkillRating({ skillName, rating, color }) {
+  <style>{`
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
+      `}</style>
+
   return (
     <div className="mb-3">
       <div className="mb-1.5 text-xs font-bold text-zinc-800">{skillName}</div>
@@ -323,7 +327,7 @@ function CurriculumVitae({ name, jobTitle, summary, phone, email, website, addre
         <div className="flex absolute bottom-0 left-0">
           {[...Array(7)].map((_, index) => (
             <div
-              key={index}
+              key={index} className="pdf-avoid-break"
               style={{
                 width: index === 0 ? "40px" : "24px",
                 height: index === 0 ? "40px" : "24px",

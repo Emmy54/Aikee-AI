@@ -1,716 +1,1177 @@
-// Dashboard.jsx — User Dashboard with real CV management
-// Integrates with Supabase CVs and existing BuilderApp
+// Dashboard.jsx — Redesigned to exactly match Stitch design (desktop + mobile)
+// Preserves all original logic: Supabase, cvOperations, props, navigation
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../lib/supabaseClient";
-import { cvOperations } from "../../utils/databaseHelpers";
+import { cvOperations, getUserStats } from "../../utils/databaseHelpers";
 
-// ── Colour palette ─────────────────────────────────────────
-const C = {
-  bg:       "#f5f6fa",
-  sidebar:  "#0f1117",
-  card:     "#ffffff",
-  border:   "#e8eaf0",
-  blue:     "#1a4bdb",
-  blueL:    "#2563eb",
-  blueBg:   "#eff6ff",
-  dark:     "#0f1117",
-  mid:      "#4b5563",
-  light:    "#9ca3af",
-  green:    "#059669",
-  greenBg:  "#ecfdf5",
-  red:      "#dc2626",
-  redBg:    "#fef2f2",
-  yellow:   "#d97706",
-  yellowBg: "#fffbeb",
+// ─── Design Tokens (DESIGN.md exact values) ──────────────────────────────────
+const T = {
+  primary:        "#2142e7",
+  primaryDark:    "#0029c0",
+  primaryBg:      "rgba(33,66,231,0.08)",
+  accentPurple:   "#4F46E5",
+  surface:        "#f9f9ff",
+  surfaceLow:     "#f1f3ff",
+  surfaceHigh:    "#e1e8fd",
+  surfaceVar:     "#dce2f7",
+  surfaceHighest: "#dce2f7",
+  white:          "#ffffff",
+  onSurface:      "#141b2b",
+  onSurfaceV:     "#444656",
+  outline:        "#757687",
+  outlineV:       "#c5c5d9",
+  border:         "#E5E7EB",
+  secondary:      "#006687",
+  secondaryBg:    "rgba(0,102,135,0.08)",
+  tertiary:       "#2927ba",
+  tertiaryBg:     "rgba(41,39,186,0.08)",
+  green:          "#16a34a",
+  greenBg:        "#f0fdf4",
+  error:          "#ba1a1a",
+  errorBg:        "#ffdad6",
+  glassFill:      "rgba(255,255,255,0.7)",
 };
 
-// ── Injected styles ────────────────────────────────────────
+// ─── CSS ─────────────────────────────────────────────────────────────────────
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Manrope', sans-serif; background: ${C.bg}; color: ${C.dark}; -webkit-font-smoothing: antialiased; }
 
-  /* ── Layout ── */
-  .db-shell { display: flex; min-height: 100vh; }
+  :root {
+    --primary: ${T.primary};
+    --primary-dark: ${T.primaryDark};
+    --surface: ${T.surface};
+    --surface-low: ${T.surfaceLow};
+    --surface-high: ${T.surfaceHigh};
+    --surface-var: ${T.surfaceVar};
+    --white: ${T.white};
+    --on-surface: ${T.onSurface};
+    --on-surface-v: ${T.onSurfaceV};
+    --outline: ${T.outline};
+    --outline-v: ${T.outlineV};
+    --border: ${T.border};
+    --error: ${T.error};
+    --green: ${T.green};
+  }
 
-  /* ── Sidebar ── */
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--surface);
+    color: var(--on-surface);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    font-family: 'Material Symbols Outlined';
+    font-style: normal;
+    line-height: 1;
+    display: inline-block;
+    vertical-align: middle;
+  }
+  .icon-filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+
+  /* ── Glass card ── */
+  .glass-card {
+    background: ${T.glassFill};
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+
+  /* ── Shell ── */
+  .db-shell {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ══════════════════════════════
+     DESKTOP SIDEBAR
+  ══════════════════════════════ */
   .db-sidebar {
-    width: 240px; flex-shrink: 0;
-    background: ${C.sidebar};
-    display: flex; flex-direction: column;
-    padding: 0; position: fixed;
+    width: 240px;
+    flex-shrink: 0;
+    background: var(--white);
+    border-right: 1px solid var(--outline-v);
+    position: fixed;
     top: 0; left: 0; bottom: 0;
+    display: flex; flex-direction: column;
+    padding: 16px;
+    gap: 8px;
     z-index: 50;
-  }
-  .db-sidebar-logo {
-    padding: 24px 24px 20px;
-    font-size: 20px; font-weight: 900; color: #fff;
-    letter-spacing: -0.5px;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-  }
-  .db-sidebar-logo span { color: ${C.blue}; }
-  .db-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 2px; }
-  .db-nav-section {
-    font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.3);
-    letter-spacing: 1.5px; text-transform: uppercase;
-    padding: 12px 12px 6px;
-  }
-  .db-nav-item {
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 12px; border-radius: 8px;
-    font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.55);
-    cursor: pointer; transition: all 0.15s;
-    border: none; background: none; width: 100%; text-align: left;
-    font-family: 'Manrope', sans-serif;
-  }
-  .db-nav-item:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.85); }
-  .db-nav-item.active { background: rgba(26,75,219,0.2); color: #fff; }
-  .db-nav-item.active .db-nav-icon { color: ${C.blue}; }
-  .db-nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
-  .db-nav-badge {
-    margin-left: auto; background: ${C.blue};
-    color: #fff; font-size: 10px; font-weight: 700;
-    padding: 2px 7px; border-radius: 10px;
-  }
-  .db-sidebar-user {
-    padding: 16px; border-top: 1px solid rgba(255,255,255,0.06);
-    display: flex; align-items: center; gap: 12px;
-    cursor: pointer; transition: background 0.15s;
-    border-radius: 0;
-  }
-  .db-sidebar-user:hover { background: rgba(255,255,255,0.04); }
-  .db-avatar {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: linear-gradient(135deg, ${C.blue}, #7c3aed);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
-  }
-  .db-user-name { font-size: 13px; font-weight: 600; color: #fff; }
-  .db-user-plan {
-    font-size: 10px; font-weight: 700; color: ${C.blue};
-    background: rgba(26,75,219,0.15);
-    padding: 1px 6px; border-radius: 4px;
-    display: inline-block; margin-top: 1px;
+    overflow-y: auto;
   }
 
-  /* ── Main content ── */
+  /* Logo block */
+  .db-logo {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 8px 24px;
+    margin-bottom: 0;
+  }
+  .db-logo-icon {
+    width: 40px; height: 40px;
+    background: var(--primary);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    color: ${T.white};
+    flex-shrink: 0;
+  }
+  .db-logo-name {
+    font-size: 20px; font-weight: 800;
+    color: var(--primary);
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+  }
+  .db-logo-sub {
+    font-size: 11px; color: var(--on-surface-v);
+    font-weight: 400;
+  }
+
+  /* Nav links */
+  .db-nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+  .db-nav-link {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-radius: 8px;
+    font-size: 14px; font-weight: 500;
+    color: var(--on-surface-v);
+    text-decoration: none; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    border: none; background: none; width: 100%; text-align: left;
+    font-family: 'Inter', sans-serif;
+  }
+  .db-nav-link:hover {
+    background: var(--surface-low);
+    color: var(--on-surface);
+  }
+  .db-nav-link.active {
+    background: var(--primary);
+    color: ${T.white};
+    font-weight: 600;
+    transform: translateX(4px);
+  }
+  .db-nav-link.active .material-symbols-outlined { color: ${T.white}; }
+
+  /* Sidebar bottom */
+  .db-sidebar-bottom {
+    border-top: 1px solid var(--outline-v);
+    padding-top: 16px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .db-sidebar-cta {
+    width: 100%; padding: 12px;
+    background: var(--primary); color: ${T.white};
+    border: none; border-radius: 8px;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: background 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 16px rgba(33,66,231,0.25);
+    margin-bottom: 8px;
+  }
+  .db-sidebar-cta:hover { background: var(--primary-dark); box-shadow: 0 6px 20px rgba(33,66,231,0.35); }
+  .db-signout-link {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; border-radius: 8px;
+    font-size: 14px; font-weight: 500;
+    color: var(--on-surface-v);
+    cursor: pointer; border: none; background: none;
+    font-family: 'Inter', sans-serif;
+    transition: background 0.15s, color 0.15s;
+    width: 100%; text-align: left;
+  }
+  .db-signout-link:hover { background: var(--surface-low); color: var(--on-surface); }
+
+  /* ══════════════════════════════
+     MAIN CONTENT
+  ══════════════════════════════ */
   .db-main {
     margin-left: 240px;
-    flex: 1; display: flex; flex-direction: column;
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column;
     min-height: 100vh;
-    position: relative;
   }
 
-  /* ── Topbar ── */
-  .db-topbar {
-    background: #fff; border-bottom: 1px solid ${C.border};
-    padding: 0 32px; height: 60px;
-    display: flex; align-items: center; justify-content: space-between;
-    position: sticky; top: 0; z-index: 40;
-  }
-  .db-topbar-left { display: flex; align-items: center; gap: 10px; }
-  .db-menu-btn {
-    display: none;
-    width: 36px; height: 36px;
-    border-radius: 10px;
-    border: 1px solid ${C.border};
-    background: #fff;
-    cursor: pointer;
-    align-items: center; justify-content: center;
-    transition: border-color 0.2s, transform 0.15s;
-  }
-  .db-menu-btn:hover { border-color: #c6c9d6; transform: translateY(-1px); }
-  .db-menu-icon {
-    width: 18px; height: 2px; background: ${C.dark};
-    position: relative; border-radius: 2px;
-  }
-  .db-menu-icon::before,
-  .db-menu-icon::after {
-    content: "";
-    position: absolute; left: 0; right: 0;
-    height: 2px; background: ${C.dark}; border-radius: 2px;
-  }
-  .db-menu-icon::before { top: -6px; }
-  .db-menu-icon::after { top: 6px; }
-  .db-mobile-menu {
-    position: absolute; top: 60px; left: 0; right: 0;
-    background: #fff; border-bottom: 1px solid ${C.border};
-    box-shadow: 0 12px 30px rgba(0,0,0,0.08);
-    padding: 12px 14px 16px;
-    z-index: 45;
-  }
-  .db-mobile-menu h4 {
-    font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
-    color: ${C.light}; margin: 8px 8px 6px;
-  }
-  .db-mobile-links {
-    display: flex; flex-direction: column; gap: 8px;
-    list-style: none;
-  }
-  .db-mobile-link {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border-radius: 10px;
-    background: ${C.bg}; color: ${C.dark};
-    text-decoration: none; font-size: 13.5px; font-weight: 600;
-  }
-  .db-mobile-link .db-nav-icon { color: ${C.dark}; }
-  .db-mobile-signout {
-    margin-top: 10px;
-    width: 100%;
-    padding: 10px 12px; border-radius: 10px;
-    border: 1px solid ${C.border};
-    background: #fff; font-size: 13px; font-weight: 700;
-    cursor: pointer;
-  }
-  .db-topbar-title { font-size: 17px; font-weight: 700; color: ${C.dark}; }
-  .db-topbar-right { display: flex; align-items: center; gap: 12px; }
-  .db-search {
-    display: flex; align-items: center; gap: 8px;
-    background: ${C.bg}; border: 1px solid ${C.border};
-    border-radius: 8px; padding: 8px 14px;
-    font-size: 13px; color: ${C.mid};
-  }
-  .db-search input {
-    background: none; border: none; outline: none;
-    font-size: 13px; color: ${C.dark};
-    font-family: 'Manrope', sans-serif; width: 180px;
-  }
-  .db-search input::placeholder { color: ${C.light}; }
-  .db-btn-new {
-    display: flex; align-items: center; gap: 8px;
-    background: ${C.blue}; color: #fff;
-    font-family: 'Manrope', sans-serif;
-    font-size: 13.5px; font-weight: 700;
-    padding: 9px 18px; border-radius: 8px; border: none;
-    cursor: pointer; transition: background 0.2s, transform 0.15s;
-    box-shadow: 0 2px 8px rgba(26,75,219,0.22);
-  }
-  .db-btn-new:hover { background: ${C.blueL}; transform: translateY(-1px); }
+  /* ── Page body ── */
+  .db-body { padding: 32px; flex: 1; }
 
-  /* ── Body ── */
-  .db-body { padding: 28px 32px; flex: 1; }
-
-  /* ── Welcome strip ── */
-  .db-welcome {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 28px;
+  /* ── Page header ── */
+  .db-page-header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-bottom: 40px;
   }
-  .db-welcome-greeting {
-    font-size: 22px; font-weight: 800; color: ${C.dark};
-    letter-spacing: -0.3px;
+  .db-page-header h2 {
+    font-size: 32px; font-weight: 600;
+    letter-spacing: -0.01em; line-height: 1.25;
+    color: var(--on-surface);
   }
-  .db-welcome-sub { font-size: 14px; color: ${C.mid}; margin-top: 3px; }
-  .db-welcome-date { font-size: 13px; color: ${C.light}; font-weight: 500; }
-
-  /* ── Stats row ── */
-  .db-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
-  .db-stat-card {
-    background: ${C.card}; border: 1px solid ${C.border};
-    border-radius: 14px; padding: 20px 24px;
-    transition: transform 0.2s, box-shadow 0.2s;
+  .db-page-date {
+    font-size: 14px; font-weight: 500;
+    color: var(--on-surface-v);
+    margin-top: 4px;
   }
-  .db-stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
-  .db-stat-icon {
-    width: 38px; height: 38px; border-radius: 10px;
+  .db-header-actions {
+    display: flex; gap: 12px; align-items: center;
+  }
+  .db-notif-btn {
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.3);
+    background: ${T.glassFill};
+    backdrop-filter: blur(12px);
     display: flex; align-items: center; justify-content: center;
-    font-size: 17px; margin-bottom: 14px;
+    cursor: pointer; color: var(--on-surface-v);
+    transition: background 0.15s;
   }
-  .db-stat-value { font-size: 28px; font-weight: 900; color: ${C.dark}; letter-spacing: -1px; }
-  .db-stat-label { font-size: 12.5px; color: ${C.mid}; font-weight: 500; margin-top: 3px; }
-  .db-stat-delta {
-    font-size: 11.5px; font-weight: 600; margin-top: 8px;
+  .db-notif-btn:hover { background: var(--surface-low); }
+  .db-user-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid rgba(33,66,231,0.15);
+    cursor: pointer; flex-shrink: 0;
+  }
+  .db-user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .db-user-avatar-fallback {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), ${T.accentPurple});
+    display: flex; align-items: center; justify-content: center;
+    color: ${T.white}; font-size: 16px; font-weight: 700;
+    border: 2px solid rgba(33,66,231,0.15);
+    cursor: pointer;
+  }
+
+  /* ══════════════════════════════
+     STAT CARDS
+  ══════════════════════════════ */
+  .db-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-bottom: 48px;
+  }
+  .db-stat-card {
+    padding: 24px; border-radius: 12px;
+    transition: transform 0.3s;
+  }
+  .db-stat-card:hover { transform: scale(1.02); }
+  .db-stat-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .db-stat-icon {
+    width: 40px; height: 40px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .db-stat-badge {
+    font-size: 11px; font-weight: 700;
+    padding: 3px 8px; border-radius: 9999px;
+  }
+  .db-stat-badge.green { color: ${T.green}; background: ${T.greenBg}; }
+  .db-stat-badge.neutral { color: var(--on-surface-v); }
+  .db-stat-label {
+    font-size: 12px; font-weight: 500;
+    color: var(--on-surface-v);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .db-stat-value {
+    font-size: 32px; font-weight: 600;
+    color: var(--on-surface);
+    letter-spacing: -0.01em; line-height: 1.2;
+  }
+
+  /* ══════════════════════════════
+     MY CVS SECTION
+  ══════════════════════════════ */
+  .db-cvs-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 32px;
+  }
+  .db-cvs-title {
+    font-size: 24px; font-weight: 600;
+    color: var(--on-surface); letter-spacing: -0.01em;
+  }
+  .db-view-archive {
     display: flex; align-items: center; gap: 4px;
+    font-size: 14px; font-weight: 600;
+    color: var(--primary); text-decoration: none; cursor: pointer;
+    border: none; background: none; font-family: 'Inter', sans-serif;
+    transition: gap 0.2s;
   }
-  .db-stat-delta.up { color: ${C.green}; }
-  .db-stat-delta.neutral { color: ${C.light}; }
+  .db-view-archive:hover { gap: 8px; }
 
-  /* ── Section header ── */
-  .db-section-hd {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 18px;
+  /* CV grid */
+  .db-cv-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
   }
-  .db-section-title { font-size: 15px; font-weight: 700; color: ${C.dark}; }
-  .db-filter-tabs { display: flex; gap: 6px; }
-  .db-filter-tab {
-    font-family: 'Manrope', sans-serif;
-    font-size: 12.5px; font-weight: 600;
-    padding: 6px 14px; border-radius: 20px;
-    border: 1px solid ${C.border}; background: #fff;
-    color: ${C.mid}; cursor: pointer; transition: all 0.15s;
+
+  /* ── Create New CV dashed card ── */
+  .db-new-card {
+    height: 320px;
+    border: 2px dashed var(--outline-v);
+    border-radius: 16px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px; cursor: pointer;
+    background: transparent;
+    transition: border-color 0.2s, background 0.2s;
+    font-family: 'Inter', sans-serif;
   }
-  .db-filter-tab.active { background: ${C.blue}; border-color: ${C.blue}; color: #fff; }
-  .db-filter-tab:hover:not(.active) { border-color: #bbc; color: ${C.dark}; }
+  .db-new-card:hover {
+    border-color: var(--primary);
+    background: ${T.primaryBg};
+  }
+  .db-new-card:hover .db-new-icon {
+    background: var(--primary);
+    color: ${T.white};
+  }
+  .db-new-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--surface-high);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--on-surface-v);
+    transition: background 0.2s, color 0.2s;
+  }
+  .db-new-label {
+    font-size: 18px; font-weight: 700;
+    color: var(--on-surface);
+  }
+  .db-new-sub {
+    font-size: 14px; color: var(--on-surface-v);
+  }
 
-  /* ── CV Grid ── */
-  .db-cv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-
-  /* ── CV Card ── */
+  /* ── CV Resume card ── */
   .db-cv-card {
-    background: ${C.card}; border: 1px solid ${C.border};
     border-radius: 16px; overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s;
-    position: relative;
-    animation: fadeUp 0.4s ease both;
+    display: flex; flex-direction: column;
+    height: 320px;
+    transition: box-shadow 0.5s, transform 0.3s;
   }
   .db-cv-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 16px 40px rgba(0,0,0,0.09);
+    box-shadow: 0 24px 60px rgba(17,24,39,0.15);
+    transform: translateY(-2px);
   }
-  .db-cv-card:hover .db-cv-actions { opacity: 1; transform: translateY(0); }
 
-  /* Thumbnail */
-  .db-cv-thumb {
-    height: 160px; position: relative; overflow: hidden;
-    display: flex; align-items: center; justify-content: center;
+  /* Preview area */
+  .db-cv-preview {
+    flex: 1;
+    background: rgba(220,226,247,0.3);
+    padding: 16px; position: relative;
+    min-height: 0;
   }
-  .db-cv-thumb-bg {
+  .db-cv-preview-inner {
+    width: 100%; height: 100%;
+    background: ${T.white};
+    border-radius: 6px;
+    border: 1px solid rgba(197,197,217,0.3);
+    overflow: hidden;
+    position: relative;
+  }
+  .db-cv-preview-content {
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .db-cv-skeleton-line {
+    border-radius: 4px;
+    background: var(--surface-var);
+  }
+  .db-cv-skeleton-line.sm { height: 8px; width: 33%; }
+  .db-cv-skeleton-line.accent { height: 16px; width: 100%; background: ${T.primaryBg}; }
+  .db-cv-skeleton-line.xs { height: 4px; background: var(--outline-v); }
+  .db-cv-skeleton-line.xs-short { height: 4px; width: 66%; background: var(--outline-v); }
+
+  /* Hover overlay */
+  .db-cv-hover {
     position: absolute; inset: 0;
-    opacity: 0.08;
-  }
-  .db-cv-thumb-mock {
-    position: relative; z-index: 1;
-    width: 80px; background: #fff;
-    border-radius: 6px; padding: 8px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-  }
-  .db-cv-mock-line {
-    height: 4px; border-radius: 2px; background: #e5e7eb; margin-bottom: 5px;
-  }
-  .db-cv-mock-line.accent { background: currentColor; opacity: 0.5; width: 50%; }
-  .db-cv-mock-line.short { width: 60%; }
-  .db-cv-mock-line.shorter { width: 40%; }
-  .db-cv-mock-head {
-    height: 20px; border-radius: 3px; background: currentColor;
-    opacity: 0.15; margin-bottom: 8px;
-  }
-  .db-cv-template-badge {
-    position: absolute; top: 12px; right: 12px;
-    background: rgba(255,255,255,0.95);
-    border: 1px solid rgba(0,0,0,0.08);
-    border-radius: 6px; padding: 3px 8px;
-    font-size: 10px; font-weight: 700;
-    color: ${C.mid}; z-index: 2;
-  }
-
-  /* Hover actions overlay */
-  .db-cv-actions {
-    position: absolute; inset: 0; z-index: 3;
-    background: rgba(15,17,23,0.55);
+    background: rgba(33,66,231,0.6);
+    opacity: 0; transition: opacity 0.3s;
     display: flex; align-items: center; justify-content: center;
-    gap: 10px;
-    opacity: 0; transition: opacity 0.2s;
+    gap: 12px; border-radius: 6px;
   }
-  .db-action-btn {
-    font-family: 'Manrope', sans-serif;
-    font-size: 12px; font-weight: 700;
-    padding: 8px 16px; border-radius: 8px;
-    border: none; cursor: pointer;
+  .db-cv-card:hover .db-cv-hover { opacity: 1; }
+  .db-hover-btn {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: ${T.white}; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--primary);
     transition: transform 0.15s;
   }
-  .db-action-btn:hover { transform: scale(1.05); }
-  .db-action-edit { background: #fff; color: ${C.dark}; }
-  .db-action-preview { background: ${C.blue}; color: #fff; }
-  .db-action-delete { background: rgba(255,255,255,0.12); color: #fff; font-size: 16px; padding: 8px 10px; }
+  .db-hover-btn:hover { transform: scale(1.1); }
 
-  /* Card body */
-  .db-cv-body { padding: 16px 18px; }
-  .db-cv-title { font-size: 14px; font-weight: 700; color: ${C.dark}; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .db-cv-meta { display: flex; align-items: center; justify-content: space-between; }
-  .db-cv-updated { font-size: 12px; color: ${C.light}; }
-  .db-cv-downloads {
+  /* ATS badge */
+  .db-ats-badge {
+    position: absolute; top: 24px; right: 24px;
     display: flex; align-items: center; gap: 4px;
-    font-size: 12px; color: ${C.light};
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(33,66,231,0.2);
+    border-radius: 9999px;
+    padding: 4px 10px;
+    box-shadow: 0 2px 8px rgba(17,24,39,0.1);
+    z-index: 2;
+  }
+  .db-ats-label {
+    font-size: 10px; font-weight: 700;
+    color: var(--primary);
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .db-ats-value {
+    font-size: 14px; font-weight: 700;
+    color: var(--on-surface);
   }
 
-  /* ── New CV card ── */
-  .db-new-cv-card {
-    background: ${C.card}; border: 2px dashed ${C.border};
-    border-radius: 16px; height: 100%;
-    min-height: 230px;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    gap: 10px; cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-    color: ${C.light};
+  /* Card footer */
+  .db-cv-footer {
+    padding: 20px; background: ${T.white};
+    flex-shrink: 0;
   }
-  .db-new-cv-card:hover { border-color: ${C.blue}; background: ${C.blueBg}; color: ${C.blue}; }
-  .db-new-cv-icon {
-    width: 44px; height: 44px; border-radius: 50%;
-    border: 2px dashed currentColor;
+  .db-cv-footer-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 16px;
+  }
+  .db-cv-name {
+    font-size: 18px; font-weight: 700;
+    color: var(--on-surface); margin-bottom: 2px;
+  }
+  .db-cv-updated {
+    font-size: 12px; color: var(--on-surface-v);
+  }
+  .db-delete-btn {
+    border: none; background: none; cursor: pointer;
+    color: var(--on-surface-v); padding: 4px;
+    border-radius: 6px; display: flex; align-items: center;
+    transition: color 0.15s;
+  }
+  .db-delete-btn:hover { color: var(--error); }
+  .db-cv-actions {
+    display: flex; gap: 8px;
+  }
+  .db-cv-btn {
+    flex: 1; padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--outline-v);
+    background: ${T.white};
+    font-family: 'Inter', sans-serif;
+    font-size: 14px; font-weight: 700;
+    color: var(--on-surface);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .db-cv-btn:hover { background: var(--surface-low); }
+
+  /* ══════════════════════════════
+     AI UPSELL BANNER
+  ══════════════════════════════ */
+  .db-upsell {
+    margin-top: 48px;
+    background: linear-gradient(135deg, var(--primary) 0%, ${T.accentPurple} 100%);
+    border-radius: 16px;
+    padding: 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 24px;
+    box-shadow: 0 20px 60px rgba(33,66,231,0.2);
+  }
+  .db-upsell-left {
+    display: flex; align-items: center; gap: 24px;
+  }
+  .db-upsell-icon {
+    width: 64px; height: 64px;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 22px; font-weight: 300;
+    color: ${T.white}; flex-shrink: 0;
+  }
+  .db-upsell-h4 {
+    font-size: 20px; font-weight: 600;
+    color: ${T.white}; margin-bottom: 4px;
+  }
+  .db-upsell-p {
+    font-size: 14px; color: rgba(255,255,255,0.8);
+    max-width: 440px; line-height: 1.6;
+  }
+  .db-upsell-btn {
+    background: ${T.white}; color: var(--primary);
+    padding: 12px 32px; border-radius: 12px;
+    border: none; font-family: 'Inter', sans-serif;
+    font-size: 15px; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+    transition: background 0.2s, transform 0.15s;
+    flex-shrink: 0;
+  }
+  .db-upsell-btn:hover { background: var(--surface); transform: scale(0.98); }
+  .db-upsell-btn:active { transform: scale(0.95); }
+
+  /* ══════════════════════════════
+     MOBILE HEADER
+  ══════════════════════════════ */
+  .db-mobile-header {
+    display: none;
+    align-items: center; justify-content: space-between;
+    padding: 0 20px; height: 56px;
+    background: rgba(249,249,255,0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 60;
+  }
+  .db-mobile-menu-btn {
+    padding: 6px; border: none; background: none; cursor: pointer;
+    color: var(--on-surface-v); border-radius: 8px;
+    display: flex; align-items: center;
+    transition: background 0.15s;
+  }
+  .db-mobile-menu-btn:hover { background: var(--surface-low); }
+  .db-mobile-logo {
+    font-size: 20px; font-weight: 800;
+    color: var(--primary); letter-spacing: -0.5px;
+  }
+  .db-mobile-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    overflow: hidden; cursor: pointer;
+  }
+  .db-mobile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .db-mobile-avatar-fallback {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), ${T.accentPurple});
+    display: flex; align-items: center; justify-content: center;
+    color: ${T.white}; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+
+  /* Mobile overlay */
+  .db-mobile-overlay {
+    display: none; position: fixed; inset: 0;
+    background: ${T.white}; z-index: 70;
+    flex-direction: column; padding: 20px;
+  }
+  .db-mobile-overlay.open { display: flex; }
+  .db-overlay-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 32px;
+  }
+  .db-overlay-close {
+    padding: 6px; border: none; background: none; cursor: pointer;
+    color: var(--on-surface-v); border-radius: 8px; display: flex;
+  }
+  .db-overlay-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .db-overlay-link {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 16px; border-radius: 10px;
+    font-size: 15px; font-weight: 600;
+    color: var(--on-surface); text-decoration: none;
+    cursor: pointer; border: none; background: none;
+    font-family: 'Inter', sans-serif;
+    transition: background 0.15s;
+  }
+  .db-overlay-link:hover { background: var(--surface-low); }
+  .db-overlay-link.active { color: var(--primary); background: ${T.primaryBg}; }
+  .db-overlay-footer {
+    border-top: 1px solid var(--border); padding-top: 16px;
+  }
+
+  /* ══════════════════════════════
+     MOBILE CONTENT LAYOUT
+  ══════════════════════════════ */
+  .db-mobile-body {
+    display: none;
+    flex-direction: column; gap: 0;
+    padding: 20px 16px 80px;
+  }
+
+  /* Mobile welcome */
+  .db-m-welcome { margin-bottom: 20px; }
+  .db-m-welcome h2 {
+    font-size: 26px; font-weight: 800;
+    color: var(--on-surface); letter-spacing: -0.5px;
+    line-height: 1.2;
+  }
+  .db-m-welcome p {
+    font-size: 14px; color: var(--on-surface-v);
+    margin-top: 4px;
+  }
+
+  /* Mobile create new CV banner */
+  .db-m-create-banner {
+    background: var(--primary);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; cursor: pointer; margin-bottom: 24px;
+    transition: background 0.2s;
+    border: none; width: 100%; text-align: left;
+    font-family: 'Inter', sans-serif;
+  }
+  .db-m-create-banner:hover { background: var(--primary-dark); }
+  .db-m-create-left { display: flex; align-items: center; gap: 14px; }
+  .db-m-create-icon {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    color: ${T.white}; flex-shrink: 0;
+  }
+  .db-m-create-title {
+    font-size: 18px; font-weight: 700; color: ${T.white};
+    display: block;
+  }
+  .db-m-create-sub {
+    font-size: 13px; color: rgba(255,255,255,0.75);
+    display: block; margin-top: 2px;
+  }
+  .db-m-create-arrow { color: rgba(255,255,255,0.7); }
+
+  /* Mobile stats 2x2 grid */
+  .db-m-stats {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin-bottom: 28px;
+  }
+  .db-m-stat {
+    background: ${T.white};
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px;
+  }
+  .db-m-stat-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .db-m-stat-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .db-m-stat-delta {
+    font-size: 11px; font-weight: 700;
+    padding: 2px 7px; border-radius: 9999px;
+  }
+  .db-m-stat-delta.green { color: ${T.green}; background: ${T.greenBg}; }
+  .db-m-stat-delta.neutral { color: var(--on-surface-v); }
+  .db-m-stat-value {
+    font-size: 28px; font-weight: 800;
+    color: var(--on-surface); letter-spacing: -1px;
+    line-height: 1;
+  }
+  .db-m-stat-label {
+    font-size: 13px; color: var(--on-surface-v);
+    margin-top: 4px;
+  }
+
+  /* Mobile CV section */
+  .db-m-cvs-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .db-m-cvs-title {
+    font-size: 20px; font-weight: 700; color: var(--on-surface);
+  }
+  .db-m-view-all {
+    font-size: 14px; font-weight: 600; color: var(--primary);
+    border: none; background: none; cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Mobile CV card (horizontal list layout) */
+  .db-m-cv-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+  .db-m-cv-card {
+    background: ${T.white};
+    border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+  }
+  .db-m-cv-preview {
+    height: 100px; position: relative;
+    background: var(--surface-low);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .db-m-cv-preview-inner {
+    width: 70px; background: ${T.white};
+    border-radius: 4px; padding: 6px;
+    box-shadow: 0 2px 8px rgba(17,24,39,0.1);
+  }
+  .db-m-cv-mini-line {
+    height: 3px; border-radius: 2px;
+    background: var(--outline-v); margin-bottom: 3px;
+  }
+  .db-m-cv-mini-line.accent { background: var(--primary); opacity: 0.3; width: 60%; }
+  .db-m-cv-mini-line.short { width: 50%; }
+  .db-m-ats-badge {
+    position: absolute; top: 10px; right: 10px;
+    background: ${T.white}; border: 1px solid var(--border);
+    border-radius: 9999px; padding: 3px 8px;
+    display: flex; align-items: center; gap: 3px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .db-m-ats-score { font-size: 12px; font-weight: 700; }
+  .db-m-ats-score.high { color: ${T.green}; }
+  .db-m-ats-score.mid { color: ${T.primary}; }
+  .db-m-ats-score.low { color: #d97706; }
+  .db-m-cv-info {
+    padding: 12px 14px;
+  }
+  .db-m-cv-info-top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .db-m-cv-name { font-size: 15px; font-weight: 700; color: var(--on-surface); }
+  .db-m-cv-updated { font-size: 12px; color: var(--on-surface-v); margin-top: 1px; }
+  .db-m-cv-btns { display: flex; gap: 8px; }
+  .db-m-cv-btn {
+    flex: 1; padding: 9px;
+    border-radius: 8px; border: 1px solid var(--outline-v);
+    background: ${T.white}; font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 700; color: var(--on-surface);
+    cursor: pointer; transition: background 0.15s;
+  }
+  .db-m-cv-btn:hover { background: var(--surface-low); }
+  .db-m-cv-btn.primary { background: var(--primary); color: ${T.white}; border-color: var(--primary); }
+  .db-m-cv-btn.primary:hover { background: var(--primary-dark); }
+
+  /* Mobile upsell */
+  .db-m-upsell {
+    background: linear-gradient(135deg, var(--primary) 30%, ${T.accentPurple} 100%);
+    border-radius: 16px; padding: 24px; position: relative; overflow: hidden;
+    margin-top: 8px;
+  }
+  .db-m-upsell-stars {
+    position: absolute; right: 20px; top: 20px;
+    opacity: 0.3;
+  }
+  .db-m-upsell-h4 {
+    font-size: 18px; font-weight: 700;
+    color: ${T.white}; margin-bottom: 8px; line-height: 1.3;
+  }
+  .db-m-upsell-p {
+    font-size: 13px; color: rgba(255,255,255,0.8);
+    line-height: 1.6; margin-bottom: 16px;
+  }
+  .db-m-upsell-btn {
+    background: ${T.white}; color: var(--primary);
+    padding: 11px 24px; border-radius: 9999px;
+    border: none; font-family: 'Inter', sans-serif;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer; display: inline-block;
     transition: background 0.2s;
   }
-  .db-new-cv-label { font-size: 13px; font-weight: 700; }
+  .db-m-upsell-btn:hover { background: var(--surface-low); }
 
-  /* ── Empty state ── */
-  .db-empty {
-    grid-column: 1 / -1;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    padding: 64px 24px; text-align: center;
-    color: ${C.light};
+  /* ══════════════════════════════
+     MOBILE BOTTOM NAV
+  ══════════════════════════════ */
+  .db-bottom-nav {
+    display: none;
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: ${T.white};
+    border-top: 1px solid var(--border);
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    z-index: 60;
   }
-  .db-empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
-  .db-empty-title { font-size: 16px; font-weight: 700; color: ${C.mid}; margin-bottom: 6px; }
-  .db-empty-sub { font-size: 13.5px; color: ${C.light}; }
+  .db-bottom-nav-inner { display: flex; justify-content: space-around; }
+  .db-bottom-nav-item {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 3px; padding: 4px 16px; border-radius: 12px;
+    border: none; background: none; cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px; font-weight: 500; color: var(--on-surface-v);
+    transition: color 0.15s;
+  }
+  .db-bottom-nav-item.active {
+    color: var(--primary);
+    background: rgba(33,66,231,0.07);
+    border-radius: 12px;
+  }
+  .db-bottom-nav-item.active .material-symbols-outlined {
+    font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+  }
 
-  /* ── Delete modal ── */
+  /* ══════════════════════════════
+     DELETE MODAL
+  ══════════════════════════════ */
   .db-modal-overlay {
     position: fixed; inset: 0; z-index: 200;
-    background: rgba(0,0,0,0.45);
+    background: rgba(0,0,0,0.4);
     display: flex; align-items: center; justify-content: center;
     animation: fadeIn 0.2s ease;
   }
   .db-modal {
-    background: #fff; border-radius: 18px;
+    background: ${T.white}; border-radius: 20px;
     padding: 36px 32px; max-width: 400px; width: 90%;
     box-shadow: 0 24px 64px rgba(0,0,0,0.18);
     animation: scaleIn 0.2s ease;
   }
   .db-modal-icon {
     width: 52px; height: 52px; border-radius: 50%;
-    background: ${C.redBg}; display: flex;
+    background: ${T.errorBg}; display: flex;
     align-items: center; justify-content: center;
-    font-size: 22px; margin-bottom: 20px;
+    margin-bottom: 20px;
   }
-  .db-modal-title { font-size: 18px; font-weight: 800; color: ${C.dark}; margin-bottom: 8px; }
-  .db-modal-sub { font-size: 14px; color: ${C.mid}; line-height: 1.6; margin-bottom: 28px; }
+  .db-modal-title { font-size: 18px; font-weight: 700; color: var(--on-surface); margin-bottom: 8px; }
+  .db-modal-sub { font-size: 14px; color: var(--on-surface-v); line-height: 1.6; margin-bottom: 28px; }
   .db-modal-btns { display: flex; gap: 12px; }
   .db-modal-cancel {
     flex: 1; padding: 12px; border-radius: 10px;
-    border: 1.5px solid ${C.border}; background: #fff;
-    font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 600;
-    color: ${C.mid}; cursor: pointer; transition: border-color 0.2s;
+    border: 1.5px solid var(--outline-v);
+    background: ${T.white};
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+    color: var(--on-surface-v); cursor: pointer;
+    transition: border-color 0.15s;
   }
-  .db-modal-cancel:hover { border-color: #bbc; color: ${C.dark}; }
+  .db-modal-cancel:hover { border-color: var(--outline); color: var(--on-surface); }
   .db-modal-delete {
     flex: 1; padding: 12px; border-radius: 10px;
-    border: none; background: ${C.red};
-    font-family: 'Manrope', sans-serif; font-size: 14px; font-weight: 700;
-    color: #fff; cursor: pointer; transition: background 0.2s;
+    border: none; background: var(--error);
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700;
+    color: ${T.white}; cursor: pointer;
+    transition: background 0.15s;
   }
-  .db-modal-delete:hover { background: #b91c1c; }
+  .db-modal-delete:hover { background: #9b1010; }
+
+  /* ══════════════════════════════
+     EMPTY STATE
+  ══════════════════════════════ */
+  .db-empty {
+    grid-column: 1 / -1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 64px 24px; text-align: center;
+    color: var(--on-surface-v);
+  }
+  .db-empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.35; }
+  .db-empty-title { font-size: 16px; font-weight: 700; color: var(--on-surface-v); margin-bottom: 6px; }
+  .db-empty-sub { font-size: 14px; color: var(--outline); }
 
   /* ── Animations ── */
   @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(16px); }
+    from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  @keyframes fadeIn {
-    from { opacity: 0; } to { opacity: 1; }
-  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes scaleIn {
-    from { opacity: 0; transform: scale(0.94); }
+    from { opacity: 0; transform: scale(0.93); }
     to   { opacity: 1; transform: scale(1); }
   }
+  .db-cv-card, .db-m-cv-card {
+    animation: fadeUp 0.45s ease both;
+  }
+  .db-cv-card:nth-child(1), .db-m-cv-card:nth-child(1) { animation-delay: 0.05s; }
+  .db-cv-card:nth-child(2), .db-m-cv-card:nth-child(2) { animation-delay: 0.1s; }
+  .db-cv-card:nth-child(3), .db-m-cv-card:nth-child(3) { animation-delay: 0.15s; }
+  .db-cv-card:nth-child(4), .db-m-cv-card:nth-child(4) { animation-delay: 0.2s; }
 
-  /* Stagger CV cards */
-  .db-cv-card:nth-child(1) { animation-delay: 0.05s; }
-  .db-cv-card:nth-child(2) { animation-delay: 0.1s; }
-  .db-cv-card:nth-child(3) { animation-delay: 0.15s; }
-  .db-cv-card:nth-child(4) { animation-delay: 0.2s; }
-  .db-cv-card:nth-child(5) { animation-delay: 0.25s; }
-
-  /* ── Mobile & Tablet Responsive ── */
-  @media (max-width: 1024px) {
-    .db-body { padding: 24px 24px; }
-    .db-welcome { gap: 12px; }
-    .db-stats { grid-template-columns: repeat(2, 1fr); }
-    .db-cv-grid { grid-template-columns: repeat(2, 1fr); }
-    .db-topbar { padding: 16px 20px; }
-    .db-btn-new { font-size: 13px; padding: 10px 18px; }
+  /* ══════════════════════════════
+     RESPONSIVE BREAKPOINTS
+  ══════════════════════════════ */
+  @media (min-width: 1024px) {
+    .db-sidebar       { display: flex; }
+    .db-main          { display: flex; }
+    .db-mobile-header { display: none; }
+    .db-mobile-body   { display: none; }
+    .db-bottom-nav    { display: none; }
   }
 
+  @media (max-width: 1023px) {
+    .db-sidebar       { display: none; }
+    .db-main          { display: none; }
+    .db-mobile-header { display: flex; }
+    .db-mobile-body   { display: flex; }
+    .db-bottom-nav    { display: flex; }
+  }
+
+  @media (min-width: 1024px) and (max-width: 1280px) {
+    .db-stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .db-cv-grid    { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    .db-body       { padding: 24px; }
+  }
+    
   @media (max-width: 768px) {
-    .db-shell { flex-direction: column; }
-    .db-sidebar {
-      position: static;
-      width: 100%;
-      flex-direction: row;
-      max-height: 60px;
-      padding: 0 16px;
-    }
-    .db-sidebar-logo {
-      font-size: 18px;
-      padding: 12px 12px 12px 0;
-      flex: 1;
-    }
-    .db-nav {
-      display: none;
-    }
-    .db-sidebar-user { display: none; }
-    .db-main { margin-left: 0; }
-    .db-body { padding: 16px 12px; }
-    .db-topbar {
-      padding: 16px 12px;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 12px;
-    }
-    .db-topbar-title {
-      font-size: 18px;
-    }
-    .db-menu-btn { display: inline-flex; }
-    .db-mobile-menu { top: 56px; }
-    .db-topbar-right { flex-wrap: wrap; gap: 10px; }
-    .db-search { flex: 1; }
-    .db-search input { width: 100%; }
-    .db-welcome { flex-direction: column; align-items: flex-start; gap: 6px; }
-    .db-stats { grid-template-columns: 1fr 1fr; gap: 12px; }
-    .db-btn-new { font-size: 12px; padding: 8px 14px; }
-    .db-cv-grid {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-    }
+    .db-shell { display: none !important; }
   }
-
-  @media (max-width: 640px) {
-    .db-sidebar {
-      height: auto;
-      padding: 8px 12px;
-    }
-    .db-sidebar-logo {
-      font-size: 16px;
-      padding: 8px 8px 8px 0;
-    }
-    .db-body { padding: 12px 8px; }
-    .db-topbar {
-      padding: 12px 8px;
-      gap: 8px;
-      flex-direction: row;
-      align-items: center;
-    }
-    .db-mobile-menu { top: 52px; padding: 10px 10px 12px; }
-    .db-topbar-title {
-      font-size: 16px;
-    }
-    .db-btn-new { font-size: 12px; padding: 8px 14px;}
-    
-    .db-topbar-right { flex-direction: column; align-items: stretch; }
-    .db-search { display: none; }
-    
-    .db-stats { grid-template-columns: 1fr; }
-    .db-cv-grid {
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-    .db-cv-card {
-      height: auto;
-      min-height: 260px;
-    }
-    .db-cv-actions {
-      gap: 6px;
-    }
-    .db-action-btn {
-      font-size: 11px;
-      padding: 6px 12px;
-    }
-    .db-cv-body {
-      padding: 12px 14px;
-    }
-    .db-cv-title { font-size: 13px; }
-    .db-cv-updated, .db-cv-downloads { font-size: 11px; }
-    .db-modal {
-      padding: 24px 20px;
-      width: 95%;
-    }
-    .db-modal-title { font-size: 16px; }
-    .db-modal-sub { font-size: 13px; }
-  }
+}
 `;
 
-// ── User Display Name Component ───────────────────────────
-function UserDisplayName({ user, fallback = "Name" }) {
+// ─── Icon helper ──────────────────────────────────────────────────────────────
+function Icon({ name, size = 20, filled = false, style = {} }) {
   return (
-    <span>{user?.firstName || fallback} {user?.lastName || ''}</span>
-
+    <span
+      className={`material-symbols-outlined${filled ? " icon-filled" : ""}`}
+      style={{ fontSize: size, ...style }}
+    >
+      {name}
+    </span>
   );
 }
 
-// ── CV Thumbnail mock ─────────────────────────────────────
-function CVThumb({ color, templateLabel }) {
-  return (
-    <div className="db-cv-thumb" style={{ background: color + "10" }}>
-      <div className="db-cv-thumb-bg" style={{ background: color }} />
-      <div className="db-cv-thumb-mock" style={{ color }}>
-        <div className="db-cv-mock-head" />
-        <div className="db-cv-mock-line accent" />
-        <div style={{ height: 6 }} />
-        <div className="db-cv-mock-line" />
-        <div className="db-cv-mock-line short" />
-        <div style={{ height: 6 }} />
-        <div className="db-cv-mock-line" />
-        <div className="db-cv-mock-line shorter" />
-        <div className="db-cv-mock-line" />
-      </div>
-      <span className="db-cv-template-badge">{templateLabel}</span>
-    </div>
-  );
+// ─── ATS score colour helper ─────────────────────────────────────────────────
+function atsColor(score) {
+  const n = parseInt(score);
+  if (n >= 85) return T.green;
+  if (n >= 70) return T.primary;
+  return "#d97706";
+}
+function atsMobileClass(score) {
+  const n = parseInt(score);
+  if (n >= 85) return "high";
+  if (n >= 70) return "mid";
+  return "low";
 }
 
-// ── CV Card ───────────────────────────────────────────────
-function CVCard({ cv, onDelete, onPreview }) {
-  return (
-    <div className="db-cv-card">
-      <CVThumb color={cv.color} templateLabel={cv.templateLabel} />
-
-      {/* Hover action overlay */}
-      <div className="db-cv-actions">
-        <button className="db-action-btn db-action-edit" onClick={(e) => { e.stopPropagation(); onPreview(cv); }}>Edit</button>
-        <button className="db-action-btn db-action-preview" onClick={(e) => { e.stopPropagation(); onPreview(cv); }}>Preview</button>
-        <button className="db-action-btn db-action-delete" onClick={(e) => { e.stopPropagation(); onDelete(cv); }}>🗑</button>
-      </div>
-
-      <div className="db-cv-body">
-        <div className="db-cv-title">{cv.title}</div>
-        <div className="db-cv-meta">
-          <span className="db-cv-updated">Updated {cv.updatedAt}</span>
-          <span className="db-cv-downloads">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.5 }}>
-              <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            {cv.downloads}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Delete Modal ──────────────────────────────────────────
-function DeleteModal({ cv, onConfirm, onCancel }) {
-  return (
-    <div className="db-modal-overlay" onClick={onCancel}>
-      <div className="db-modal" onClick={e => e.stopPropagation()}>
-        <div className="db-modal-icon">🗑️</div>
-        <div className="db-modal-title">Delete this CV?</div>
-        <div className="db-modal-sub">
-          <strong>"{cv.title}"</strong> will be permanently deleted.
-          This action cannot be undone.
-        </div>
-        <div className="db-modal-btns">
-          <button className="db-modal-cancel" onClick={onCancel}>Cancel</button>
-          <button className="db-modal-delete" onClick={onConfirm}>Yes, Delete</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Sidebar ───────────────────────────────────────────────
-function Sidebar({ user, onSignOut, onNewCV }) {
-  const navigate = useNavigate();
-  
+// ─── Desktop Sidebar ──────────────────────────────────────────────────────────
+function DesktopSidebar({ user, onSignOut, navigate }) {
   return (
     <aside className="db-sidebar">
-      <div className="db-sidebar-logo">
-        NexHire
+      {/* Logo */}
+      <div className="db-logo">
+        <div className="db-logo-icon">
+          <Icon name="bolt" size={20} filled />
+        </div>
+        <div>
+          <div className="db-logo-name">Aikee AI</div>
+          <div className="db-logo-sub">AI Resume Builder</div>
+        </div>
       </div>
 
+      {/* Nav */}
       <nav className="db-nav">
-        <div className="db-nav-section">Menu</div>
-        <button className="db-nav-item active" onClick={() => navigate("/dashboard")}>
-          <span className="db-nav-icon">⊞</span>
+        <button className="db-nav-link active" onClick={() => navigate("/dashboard")}>
+          <Icon name="dashboard" size={20} />
           Dashboard
         </button>
-        <button className="db-nav-item" onClick={onNewCV}>
-          <span className="db-nav-icon">✦</span>
+        <button className="db-nav-link" onClick={() => navigate("/builder")}>
+          <Icon name="add_circle" size={20} />
           New CV
         </button>
-
-        <div className="db-nav-section" style={{ marginTop: 12 }}>Account</div>
-        <button className="db-nav-item" onClick={() => navigate("/settings")}>
-          <span className="db-nav-icon">⚙</span>
+        <button className="db-nav-link" onClick={() => navigate("/settings")}>
+          <Icon name="settings" size={20} />
           Settings
+        </button>
+        <button className="db-nav-link" onClick={() => navigate("/profile")}>
+          <Icon name="account_circle" size={20} />
+          Profile
         </button>
       </nav>
 
-      <div className="db-sidebar-user" onClick={onSignOut}>
-        <div className="db-avatar">{user?.email?.charAt(0).toUpperCase() || "U"}</div>
-        <div style={{ overflow: "hidden" }}>
-          <div className="db-user-name">{user?.email || "User"}</div>
-          <div className="db-user-name"><UserDisplayName user={user} /></div>
-          <div className="db-user-plan">Sign Out</div>
-        </div>
+      {/* Bottom */}
+      <div className="db-sidebar-bottom">
+        <button className="db-sidebar-cta" onClick={() => navigate("/builder")}>
+          <Icon name="add" size={18} />
+          Create New CV
+        </button>
+        <button className="db-signout-link" onClick={onSignOut}>
+          <Icon name="logout" size={18} />
+          Sign Out
+        </button>
       </div>
     </aside>
   );
 }
 
-// ── Stats Bar ─────────────────────────────────────────────
-function StatsBar({ cvCount }) {
-  const stats = [
-    { icon: "📄", iconBg: C.blueBg, value: cvCount, label: "CVs Created", delta: "+1 this week", up: true },
-    { icon: "⬇", iconBg: C.greenBg, value: 11, label: "Total Downloads", delta: "+3 this week", up: true },
-    { icon: "✦", iconBg: "#f5f3ff", value: "87%", label: "Avg. ATS Score", delta: "↑ from 74%", up: true },
-    { icon: "⏱", iconBg: C.yellowBg, value: "4m", label: "Avg. Build Time", delta: "Industry avg: 45m", up: false },
-  ];
-
+// ─── Desktop Stat Card ────────────────────────────────────────────────────────
+function StatCard({ icon, iconBg, iconColor, badge, badgeType, label, value }) {
   return (
-    <div className="db-stats">
-      {stats.map((s, i) => (
-        <div className="db-stat-card" key={i}>
-          <div className="db-stat-icon" style={{ background: s.iconBg }}>{s.icon}</div>
-          <div className="db-stat-value">{s.value}</div>
-          <div className="db-stat-label">{s.label}</div>
-          <div className={`db-stat-delta ${s.up ? "up" : "neutral"}`}>
-            {s.up ? "↑" : "—"} {s.delta}
-          </div>
+    <div className="db-stat-card glass-card">
+      <div className="db-stat-top">
+        <div className="db-stat-icon" style={{ background: iconBg }}>
+          <Icon name={icon} size={20} style={{ color: iconColor }} />
         </div>
-      ))}
+        {badge && (
+          <span className={`db-stat-badge ${badgeType}`}>{badge}</span>
+        )}
+      </div>
+      <div className="db-stat-label">{label}</div>
+      <div className="db-stat-value">{value}</div>
     </div>
   );
 }
 
-// ── Main Dashboard ────────────────────────────────────────
+// ─── Desktop CV card (preview skeleton + ATS + footer) ───────────────────────
+function DesktopCVCard({ cv, onDelete, onEdit, onPreview }) {
+  return (
+    <div className="db-cv-card glass-card">
+      {/* Preview */}
+      <div className="db-cv-preview">
+        <div className="db-cv-preview-inner">
+          <div className="db-cv-preview-content">
+            <div className="db-cv-skeleton-line sm" />
+            <div className="db-cv-skeleton-line accent" />
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+              <div className="db-cv-skeleton-line xs" />
+              <div className="db-cv-skeleton-line xs" />
+              <div className="db-cv-skeleton-line xs-short" />
+            </div>
+          </div>
+          {/* Hover overlay */}
+          <div className="db-cv-hover">
+            <button className="db-hover-btn" onClick={e => { e.stopPropagation(); onPreview(cv); }} title="Preview">
+              <Icon name="visibility" size={20} />
+            </button>
+            <button className="db-hover-btn" onClick={e => { e.stopPropagation(); onEdit(cv); }} title="Edit">
+              <Icon name="edit" size={20} />
+            </button>
+          </div>
+        </div>
+        {/* ATS badge */}
+        <div className="db-ats-badge">
+          <span className="db-ats-label">ATS</span>
+          <span className="db-ats-value" style={{ color: atsColor(cv.atsScore) }}>
+            {cv.atsScore ?? "—"}
+          </span>
+        </div>
+      </div>
+      {/* Footer */}
+      <div className="db-cv-footer">
+        <div className="db-cv-footer-top">
+          <div>
+            <div className="db-cv-name">{cv.title}</div>
+            <div className="db-cv-updated">Last edited: {cv.updatedAt}</div>
+          </div>
+          <button className="db-delete-btn" onClick={e => { e.stopPropagation(); onDelete(cv); }}>
+            <Icon name="delete" size={20} />
+          </button>
+        </div>
+        <div className="db-cv-actions">
+          <button className="db-cv-btn" onClick={() => onEdit(cv)}>Edit</button>
+          <button className="db-cv-btn" onClick={() => onPreview(cv)}>Preview</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Mobile CV card ───────────────────────────────────────────────────────────
+function MobileCVCard({ cv, onDelete, onEdit, onPreview }) {
+  return (
+    <div className="db-m-cv-card">
+      <div className="db-m-cv-preview">
+        <div className="db-m-cv-preview-inner">
+          <div className="db-m-cv-mini-line accent" />
+          <div className="db-m-cv-mini-line" />
+          <div className="db-m-cv-mini-line short" />
+          <div style={{ marginTop: 4 }} />
+          <div className="db-m-cv-mini-line" />
+          <div className="db-m-cv-mini-line short" />
+          <div className="db-m-cv-mini-line" />
+        </div>
+        <div className="db-m-ats-badge">
+          <span className={`db-m-ats-score ${atsMobileClass(cv.atsScore)}`}>
+            {cv.atsScore ?? "—"} ATS
+          </span>
+        </div>
+      </div>
+      <div className="db-m-cv-info">
+        <div className="db-m-cv-info-top">
+          <div>
+            <div className="db-m-cv-name">{cv.title}</div>
+            <div className="db-m-cv-updated">Last edited {cv.updatedAt}</div>
+          </div>
+        </div>
+        <div className="db-m-cv-btns">
+          <button className="db-m-cv-btn" onClick={() => onPreview(cv)}>Preview</button>
+          <button className="db-m-cv-btn primary" onClick={() => onEdit(cv)}>Edit</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Delete Modal ─────────────────────────────────────────────────────────────
+function DeleteModal({ cv, onConfirm, onCancel, deleting }) {
+  return (
+    <div className="db-modal-overlay" onClick={onCancel}>
+      <div className="db-modal" onClick={e => e.stopPropagation()}>
+        <div className="db-modal-icon">
+          <Icon name="delete" size={24} style={{ color: T.error }} />
+        </div>
+        <div className="db-modal-title">Delete this CV?</div>
+        <div className="db-modal-sub">
+          <strong>"{cv.title}"</strong> will be permanently removed. This cannot be undone.
+        </div>
+        <div className="db-modal-btns">
+          <button className="db-modal-cancel" onClick={onCancel}>Cancel</button>
+          <button className="db-modal-delete" onClick={onConfirm} disabled={deleting}>
+            {deleting ? "Deleting…" : "Yes, Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Mobile Bottom Nav ────────────────────────────────────────────────────────
+function BottomNav({ active, setActive, navigate }) {
+  const items = [
+    { id: "resumes",  icon: "description", label: "Resumes" },
+    { id: "insights", icon: "bar_chart",   label: "Insights" },
+    { id: "builder",  icon: "add_circle",  label: "Builder" },
+    { id: "settings", icon: "settings",    label: "Settings" },
+  ];
+  return (
+    <nav className="db-bottom-nav">
+      <div className="db-bottom-nav-inner">
+        {items.map(item => (
+          <button
+            key={item.id}
+            className={`db-bottom-nav-item${active === item.id ? " active" : ""}`}
+            onClick={() => {
+              setActive(item.id);
+              if (item.id === "builder") navigate("/builder");
+              if (item.id === "settings") navigate("/settings");
+            }}
+          >
+            <Icon name={item.icon} size={22} />
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+// ─── Main Dashboard Export ────────────────────────────────────────────────────
 export default function Dashboard({ user, onSignOut }) {
   const navigate = useNavigate();
-  const [filter, setFilter] = useState("All");
-  const [search, setSearch] = useState("");
   const [cvs, setCVs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState(null);
   const [deletingCV, setDeletingCV] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("resumes");
+  const [search, setSearch] = useState("");
 
-  const filters = ["All", "Recent"];
-  const handleNewCV = () => navigate("/builder");
-
-  // Load CVs from Supabase on mount
+  // Load CVs
   useEffect(() => {
     const loadCVs = async () => {
       try {
         setLoading(true);
         const result = await cvOperations.getAllCVs();
-        if (result.success && result.data) {
-          setCVs(result.data);
-        } else {
-          console.error("Failed to load CVs:", result.error);
-        }
-      } catch (error) {
-        console.error("Error loading CVs:", error);
+        if (result.success && result.data) setCVs(result.data);
+      } catch (err) {
+        console.error("Error loading CVs:", err);
       } finally {
         setLoading(false);
       }
     };
-
     loadCVs();
   }, []);
 
-  const filtered = cvs.filter(cv => {
-    const matchesSearch = cv.title && cv.title.toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
-  });
+  // Load real account statistics (from the user_stats view)
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const result = await getUserStats();
+        if (result.success && result.data) setStats(result.data);
+      } catch (err) {
+        console.error("Error loading stats:", err);
+      }
+    };
+    loadStats();
+  }, []);
 
-  const handleDelete = (cv) => setDeletingCV(cv);
-  const handlePreview = (cv) => {
-    // Navigate to builder with the selected CV
-    navigate(`/builder?cvId=${cv.id}`);
-  };
+  const filtered = cvs.filter(cv =>
+    !search || (cv.title && cv.title.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const handleEdit    = (cv) => navigate(`/builder?cvId=${cv.id}`);
+  const handlePreview = (cv) => navigate(`/builder?cvId=${cv.id}`);
+  const handleDelete  = (cv) => setDeletingCV(cv);
   const confirmDelete = async () => {
     if (!deletingCV) return;
     try {
@@ -719,157 +1180,281 @@ export default function Dashboard({ user, onSignOut }) {
       if (result.success) {
         setCVs(prev => prev.filter(c => c.id !== deletingCV.id));
         setDeletingCV(null);
-      } else {
-        console.error("Failed to delete CV:", result.error);
       }
-    } catch (error) {
-      console.error("Error deleting CV:", error);
+    } catch (err) {
+      console.error("Error deleting:", err);
     } finally {
       setDeleting(false);
     }
   };
 
-  // Get today's date nicely
-  const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const today = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const firstName = user?.firstName || user?.email?.split("@")[0] || "there";
+  const initials  = (firstName[0] || "U").toUpperCase();
+
+  // Format the most recent activity timestamp into a short relative label
+  const formatLastActive = (stats) => {
+    const raw = stats?.last_cv_update || stats?.last_cache_use;
+    if (!raw) return "—";
+    const then = new Date(raw);
+    const diffMs = Date.now() - then.getTime();
+    const day = 24 * 60 * 60 * 1000;
+    if (diffMs < 60 * 1000) return "Just now";
+    if (diffMs < 60 * 60 * 1000) return `${Math.floor(diffMs / (60 * 1000))}m ago`;
+    if (diffMs < day) return `${Math.floor(diffMs / (60 * 60 * 1000))}h ago`;
+    if (diffMs < 7 * day) return `${Math.floor(diffMs / day)}d ago`;
+    return then.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  // ── Stat data (all values are real, sourced from the user_stats view) ──
+  const totalCVs       = stats?.total_cvs ?? cvs.length;
+  const aiGenerations  = stats?.total_cache_entries ?? 0;
+  const aiToolsUsed    = stats?.cache_types_used ?? 0;
+
+  const statCards = [
+    {
+      icon: "description", iconBg: `${T.primaryBg}`, iconColor: T.primary,
+      label: "CVs Created", value: totalCVs,
+    },
+    {
+      icon: "auto_awesome", iconBg: "rgba(79,70,229,0.1)", iconColor: T.accentPurple,
+      label: "AI Generations", value: aiGenerations,
+    },
+    {
+      icon: "category", iconBg: T.secondaryBg, iconColor: T.secondary,
+      label: "AI Tools Used", value: `${aiToolsUsed}/3`,
+    },
+    {
+      icon: "schedule", iconBg: T.tertiaryBg, iconColor: T.tertiary,
+      label: "Last Active", value: formatLastActive(stats),
+    },
+  ];
 
   return (
     <>
       <style>{css}</style>
 
+      {/* ══ DESKTOP LAYOUT ══ */}
       <div className="db-shell">
-        <Sidebar user={user} onSignOut={onSignOut} onNewCV={handleNewCV} />
+        <DesktopSidebar user={user} onSignOut={onSignOut} navigate={navigate} />
 
-        <div className="db-main">
-          {/* Topbar */}
-          <header className="db-topbar">
-            <div className="db-topbar-left">
-              <button
-                className="db-menu-btn"
-                aria-label="Toggle menu"
-                onClick={() => setMenuOpen(v => !v)}
-              >
-                <span className="db-menu-icon" />
-              </button>
-              <span className="db-topbar-title">My Dashboard</span>
-            </div>
-            <div className="db-topbar-right">
-              <div className="db-search">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <circle cx="11" cy="11" r="8" stroke={C.light} strokeWidth="2" />
-                  <path d="M21 21l-4.35-4.35" stroke={C.light} strokeWidth="2" strokeLinecap="round" />
-                </svg>
-                <input
-                  placeholder="Search CVs…"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                />
-              </div>
-              <button className="db-btn-new" onClick={handleNewCV}>
-                <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
-                New CV
-              </button>
-            </div>
-          </header>
-          {menuOpen && (
-            <div className="db-mobile-menu">
-              <h4>Menu</h4>
-              <ul className="db-mobile-links">
-                <li>
-                  <button className="db-mobile-link" onClick={() => { setMenuOpen(false); navigate("/dashboard"); }}>
-                    <span className="db-nav-icon">⊞</span>
-                    Dashboard
-                  </button>
-                </li>
-                <li>
-                  <button className="db-mobile-link" onClick={() => { setMenuOpen(false); handleNewCV(); }}>
-                    <span className="db-nav-icon">✦</span>
-                    New CV
-                  </button>
-                </li>
-              </ul>
-              <h4>Account</h4>
-              <ul className="db-mobile-links">
-                <li>
-                  <button className="db-mobile-link" onClick={() => { setMenuOpen(false); navigate("/settings"); }}>
-                    <span className="db-nav-icon">⚙</span>
-                    Settings
-                  </button>
-                </li>
-              </ul>
-              <button className="db-mobile-signout" onClick={() => { setMenuOpen(false); onSignOut(); }}>
-                Sign Out
-              </button>
-            </div>
-          )}
-
-          {/* Body */}
-          <main className="db-body">
-
-            {/* Welcome */}
-            <div className="db-welcome">
+        <main className="db-main">
+          <div className="db-body">
+            {/* Page header */}
+            <header className="db-page-header">
               <div>
-                <div className="db-welcome-greeting">
-                  Welcome back <UserDisplayName user={user?.firstName} /> 👋
-                </div>
-                <div className="db-welcome-sub">Here's what's happening with your CVs.</div>
+                <h2>Welcome back, {firstName}</h2>
+                <p className="db-page-date">{today}</p>
               </div>
-              <div className="db-welcome-date">{today}</div>
-            </div>
+              <div className="db-header-actions">
+                <button className="db-notif-btn" aria-label="Notifications">
+                  <Icon name="notifications" size={22} />
+                </button>
+                <div className="db-user-avatar-fallback" title={user?.email}>
+                  {initials}
+                </div>
+              </div>
+            </header>
 
             {/* Stats */}
-            <StatsBar cvCount={cvs.length} />
+            <section className="db-stats-grid">
+              {statCards.map(s => <StatCard key={s.label} {...s} />)}
+            </section>
 
-            {/* CV Grid */}
-            <div className="db-section-hd">
-              <span className="db-section-title">
-                My CVs
-                <span style={{ color: C.light, fontWeight: 500, fontSize: 13, marginLeft: 8 }}>({filtered.length})</span>
-              </span>
-              <div className="db-filter-tabs">
-                {filters.map(f => (
-                  <button
-                    key={f}
-                    className={`db-filter-tab ${filter === f ? "active" : ""}`}
-                    onClick={() => setFilter(f)}
-                  >
-                    {f}
-                  </button>
-                ))}
+            {/* My CVs */}
+            <section>
+              <div className="db-cvs-header">
+                <h3 className="db-cvs-title">My CVs</h3>
+                <button className="db-view-archive">
+                  View Archive <Icon name="arrow_forward" size={16} />
+                </button>
               </div>
-            </div>
 
-            <div className="db-cv-grid">
-              {filtered.length === 0 && (
-                <div className="db-empty">
-                  <div className="db-empty-icon">📄</div>
-                  <div className="db-empty-title">No CVs found</div>
-                  <div className="db-empty-sub">
-                    {search ? `No results for "${search}"` : "Create your first CV to get started."}
+              <div className="db-cv-grid">
+                {/* Create New CV — always first */}
+                <button className="db-new-card" onClick={() => navigate("/builder")}>
+                  <div className="db-new-icon">
+                    <Icon name="add" size={28} />
                   </div>
-                </div>
-              )}
+                  <span className="db-new-label">Create New CV</span>
+                  <span className="db-new-sub">Takes only 5 minutes</span>
+                </button>
 
-              {filtered.map(cv => (
-                <CVCard key={cv.id} cv={cv} onDelete={handleDelete} onPreview={handlePreview} />
-              ))}
-
-              {/* New CV card */}
-              <div className="db-new-cv-card" onClick={() => navigate("/builder")}>
-                <div className="db-new-cv-icon">+</div>
-                <span className="db-new-cv-label">Create New CV</span>
-                <span style={{ fontSize: 12, color: "inherit", opacity: 0.7 }}>Takes only 5 minutes</span>
+                {loading ? (
+                  <div style={{ color: T.onSurfaceV, padding: 32, gridColumn: "span 2" }}>
+                    Loading your CVs…
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <div className="db-empty" style={{ gridColumn: "span 2" }}>
+                    <div className="db-empty-icon">
+                      <Icon name="description" size={48} />
+                    </div>
+                    <div className="db-empty-title">No CVs yet</div>
+                    <div className="db-empty-sub">Create your first CV to get started.</div>
+                  </div>
+                ) : (
+                  filtered.map(cv => (
+                    <DesktopCVCard
+                      key={cv.id}
+                      cv={cv}
+                      onDelete={handleDelete}
+                      onEdit={handleEdit}
+                      onPreview={handlePreview}
+                    />
+                  ))
+                )}
               </div>
+            </section>
+
+            {/* AI Upsell Banner */}
+            <div className="db-upsell">
+              <div className="db-upsell-left">
+                <div className="db-upsell-icon">
+                  <Icon name="auto_awesome" size={28} filled />
+                </div>
+                <div>
+                  <div className="db-upsell-h4">Boost your ATS score by 15%</div>
+                  <p className="db-upsell-p">
+                    Our AI analyzed your recent CV and found 3 key industry keywords missing for Senior Developer roles.
+                  </p>
+                </div>
+              </div>
+              <button className="db-upsell-btn">Auto-Optimize</button>
             </div>
-          </main>
+          </div>
+        </main>
+      </div>
+
+      {/* ══ MOBILE LAYOUT ══ */}
+      {/* Mobile header */}
+      <header className="db-mobile-header">
+        <button className="db-mobile-menu-btn" onClick={() => setMobileMenuOpen(true)} aria-label="Menu">
+          <Icon name="menu" size={24} />
+        </button>
+        <div className="db-mobile-logo">Aikee AI</div>
+        <div className="db-mobile-avatar-fallback" onClick={onSignOut} title="Sign out">
+          {initials}
+        </div>
+      </header>
+
+      {/* Mobile overlay menu */}
+      <div className={`db-mobile-overlay${mobileMenuOpen ? " open" : ""}`}>
+        <div className="db-overlay-header">
+          <div className="db-mobile-logo">Aikee AI</div>
+          <button className="db-overlay-close" onClick={() => setMobileMenuOpen(false)}>
+            <Icon name="close" size={24} />
+          </button>
+        </div>
+        <nav className="db-overlay-nav">
+          <button className="db-overlay-link active" onClick={() => { setMobileMenuOpen(false); navigate("/dashboard"); }}>
+            <Icon name="dashboard" size={20} /> Dashboard
+          </button>
+          <button className="db-overlay-link" onClick={() => { setMobileMenuOpen(false); navigate("/builder"); }}>
+            <Icon name="add_circle" size={20} /> New CV
+          </button>
+          <button className="db-overlay-link" onClick={() => { setMobileMenuOpen(false); navigate("/settings"); }}>
+            <Icon name="settings" size={20} /> Settings
+          </button>
+          <button className="db-overlay-link" onClick={() => { setMobileMenuOpen(false); navigate("/profile"); }}>
+            <Icon name="account_circle" size={20} /> Profile
+          </button>
+        </nav>
+        <div className="db-overlay-footer">
+          <button className="db-overlay-link" onClick={() => { setMobileMenuOpen(false); onSignOut(); }}>
+            <Icon name="logout" size={20} /> Sign Out
+          </button>
         </div>
       </div>
 
-      {/* Delete confirmation modal */}
+      {/* Mobile body */}
+      <div className="db-mobile-body">
+        {/* Welcome */}
+        <div className="db-m-welcome">
+          <h2>Welcome back,<br />{firstName}</h2>
+          <p>{today}</p>
+        </div>
+
+        {/* Create New CV Banner */}
+        <button className="db-m-create-banner" onClick={() => navigate("/builder")}>
+          <div className="db-m-create-left">
+            <div className="db-m-create-icon">
+              <Icon name="add_circle" size={22} filled />
+            </div>
+            <div>
+              <span className="db-m-create-title">Create New CV</span>
+              <span className="db-m-create-sub">Start with a fresh template</span>
+            </div>
+          </div>
+          <div className="db-m-create-arrow">
+            <Icon name="chevron_right" size={22} />
+          </div>
+        </button>
+
+        {/* Stats 2×2 */}
+        <div className="db-m-stats">
+          {statCards.map(s => (
+            <div className="db-m-stat" key={s.label}>
+              <div className="db-m-stat-top">
+                <div className="db-m-stat-icon" style={{ background: s.iconBg }}>
+                  <Icon name={s.icon} size={18} style={{ color: s.iconColor }} />
+                </div>
+              </div>
+              <div className="db-m-stat-value">{s.value}</div>
+              <div className="db-m-stat-label">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* My CVs list */}
+        <div className="db-m-cvs-header">
+          <span className="db-m-cvs-title">My CVs</span>
+          <button className="db-m-view-all">View All</button>
+        </div>
+
+        <div className="db-m-cv-list">
+          {loading ? (
+            <p style={{ color: T.onSurfaceV, fontSize: 14, padding: "8px 0" }}>Loading…</p>
+          ) : filtered.length === 0 ? (
+            <p style={{ color: T.outline, fontSize: 14 }}>No CVs yet. Tap "Create New CV" to start.</p>
+          ) : (
+            filtered.map(cv => (
+              <MobileCVCard
+                key={cv.id}
+                cv={cv}
+                onDelete={handleDelete}
+                onEdit={handleEdit}
+                onPreview={handlePreview}
+              />
+            ))
+          )}
+        </div>
+
+        {/* Upsell card */}
+        <div className="db-m-upsell">
+          <div className="db-m-upsell-stars">
+            <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+              <path d="M30 5 L32 28 L55 30 L32 32 L30 55 L28 32 L5 30 L28 28 Z" fill="white" opacity="0.8"/>
+              <path d="M50 10 L51 18 L59 19 L51 20 L50 28 L49 20 L41 19 L49 18 Z" fill="white" opacity="0.5"/>
+            </svg>
+          </div>
+          <div className="db-m-upsell-h4">Boost your ATS score</div>
+          <p className="db-m-upsell-p">
+            Get expert AI feedback and land your dream role faster with our premium analysis tool.
+          </p>
+          <button className="db-m-upsell-btn">Upgrade Now</button>
+        </div>
+      </div>
+
+      {/* Mobile bottom nav */}
+      <BottomNav active={activeTab} setActive={setActiveTab} navigate={navigate} />
+
+      {/* Delete modal */}
       {deletingCV && (
         <DeleteModal
           cv={deletingCV}
           onConfirm={confirmDelete}
           onCancel={() => setDeletingCV(null)}
+          deleting={deleting}
         />
       )}
     </>

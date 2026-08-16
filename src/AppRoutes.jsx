@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { userProfileOperations } from "./utils/databaseHelpers";
-import NexHireLanding from "./components/steps/NexHireLanding";
+import LandingPage from "./components/steps/LandingPage"
 import Dashboard from "./components/steps/Dashboard";
-import SignIn from "./components/pages/SignIn";
+import SignInOptimized from "./components/pages/SignInOptimized";
 import BuilderApp from "./BuilderApp";
 
 // Protected Route wrapper
@@ -29,10 +29,14 @@ export default function AppRoutes() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
-  // Fetch user profile data
+  // Fetch user profile data.
+  // `authUser` is the user object we already have from getSession() or the
+  // onAuthStateChange event — pass it straight through so getUserProfile does
+  // NOT call supabase.auth.getUser() again (that re-acquires the GoTrue lock
+  // and deadlocks when invoked from the auth callback → stuck loading spinner).
   const fetchUserWithProfile = async (authUser) => {
     try {
-      const profileResult = await userProfileOperations.getUserProfile();
+      const profileResult = await userProfileOperations.getUserProfile(authUser);
       const userWithProfile = {
         ...authUser,
         firstName: profileResult.success && profileResult.data 
@@ -54,51 +58,65 @@ export default function AppRoutes() {
   };
 
   useEffect(() => {
+    let mounted = true;
+
     // Check if user is already logged in
     const checkAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           const userWithProfile = await fetchUserWithProfile(session.user);
-          setUser(userWithProfile);
+          if (mounted) setUser(userWithProfile);
         }
       } catch (error) {
         console.error("Error checking auth:", error);
       } finally {
-        setAuthLoading(false);
+        if (mounted) setAuthLoading(false);
       }
     };
 
     checkAuth();
 
-    // Subscribe to auth changes
+    // Subscribe to auth changes.
+    // IMPORTANT: do NOT await supabase.auth.* calls directly inside this
+    // callback — Supabase runs it while holding the GoTrue lock, so any auth
+    // call re-acquires the lock and deadlocks (infinite spinner on reload).
+    // Defer the async profile work to a microtask so the lock is released first.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (session?.user) {
-          const userWithProfile = await fetchUserWithProfile(session.user);
-          setUser(userWithProfile);
+          setTimeout(async () => {
+            const userWithProfile = await fetchUserWithProfile(session.user);
+            if (mounted) setUser(userWithProfile);
+            if (mounted) setAuthLoading(false);
+          }, 0);
         } else {
-          setUser(null);
+          if (mounted) setUser(null);
+          if (mounted) setAuthLoading(false);
         }
       }
     );
 
-    return () => subscription?.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+    };
   }, []);
 
   return (
     <Routes>
       {/* Public Routes */}
-      <Route path="/" element={<NexHireLanding />} />
+      <Route path="/" element={<LandingPage />} />
       <Route
         path="/signin"
         element={
           user ? (
             <Navigate to="/dashboard" replace />
           ) : (
-            <SignIn
-              onSignInSuccess={(signedInUser) => {
-                setUser(signedInUser);
+            <SignInOptimized
+              onSignInSuccess={async (signedInUser) => {
+                const userWithProfile = await fetchUserWithProfile(signedInUser);
+                setUser(userWithProfile);
               }}
             />
           )
@@ -110,12 +128,12 @@ export default function AppRoutes() {
         path="/dashboard"
         element={
           <ProtectedRoute user={user} isLoading={authLoading}>
-            <Dashboard 
-              user={user} 
+            <Dashboard
+              user={user}
               onSignOut={() => {
                 supabase.auth.signOut();
                 setUser(null);
-              }} 
+              }}
             />
           </ProtectedRoute>
         }

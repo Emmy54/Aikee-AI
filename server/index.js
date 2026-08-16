@@ -44,7 +44,7 @@ const GROQ_API_KEY =
   process.env.GROQ_QUESTIONS_API_KEY ||
   process.env.VITE_GROQ_QUESTIONS_API_KEY ||
   process.env.GROQ_QUESTIONS_API_KEY;
-const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.1-8b-instant";
+const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
 const STABILITY_API_KEY = process.env.STABILITY_API_KEY || process.env.VITE_STABILITY_API_KEY;
 
 const sendJson = (res, status, payload) => {
@@ -78,6 +78,17 @@ const isRateLimitError = (status, data) => {
     return true;
   }
   return false;
+};
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Parse a Retry-After header (Groq sends it in seconds, sometimes fractional).
+// Returns milliseconds, or null if absent/unparseable.
+const parseRetryAfterMs = (headerValue) => {
+  if (!headerValue) return null;
+  const seconds = Number(headerValue);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+  return null;
 };
 
 const handleGeminiGenerateContent = async (req, res) => {
@@ -273,30 +284,74 @@ const handleGroqGenerateContent = async (req, res) => {
   const temperature = typeof body.temperature === "number" ? body.temperature : 0.3;
   const maxTokens = Number.isFinite(body.max_tokens) ? body.max_tokens : 512;
 
-  try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature,
-        max_tokens: maxTokens,
-      }),
-    });
+  // Reasoning models (e.g. openai/gpt-oss-*) spend hidden chain-of-thought
+  // tokens BEFORE the answer, and those count against max_tokens — which can
+  // truncate the actual output mid-JSON and break parsing. Cap the reasoning to
+  // "low" for these models so the budget goes to the answer. Client may override.
+  const isReasoningModel = /gpt-oss|reasoning|o1|deepseek-r/i.test(model);
+  const reasoningEffort =
+    body.reasoning_effort || (isReasoningModel ? "low" : undefined);
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      return sendJson(res, response.status, {
-        error: "Groq API error",
-        details: data,
+  const groqPayload = {
+    model,
+    messages,
+    temperature,
+    max_tokens: maxTokens,
+  };
+  if (reasoningEffort) {
+    groqPayload.reasoning_effort = reasoningEffort;
+  }
+
+  // Groq's free tier enforces tight per-minute limits, so a transient 429 is
+  // common and usually clears within a second or two. Retry with backoff that
+  // honors the Retry-After header, capped so a long daily-quota cooldown can't
+  // hang the request — in that case we surface the 429 to the client.
+  const MAX_RETRIES = 3;
+  const MAX_RETRY_WAIT_MS = 8000;
+
+  try {
+    let response;
+    let data;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+        },
+        body: JSON.stringify(groqPayload),
       });
+
+      data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        return sendJson(res, 200, data);
+      }
+
+      // Only retry rate-limit/transient errors, and only if attempts remain.
+      if (!isRateLimitError(response.status, data) || attempt === MAX_RETRIES) {
+        break;
+      }
+
+      const retryAfterMs = parseRetryAfterMs(response.headers.get("retry-after"));
+      // Exponential backoff (0.5s, 1s, 2s…) when the header is absent.
+      const backoffMs = retryAfterMs ?? 500 * 2 ** attempt;
+      const waitMs = Math.min(backoffMs, MAX_RETRY_WAIT_MS);
+
+      // If the server tells us to wait longer than we're willing to, give up now.
+      if (retryAfterMs !== null && retryAfterMs > MAX_RETRY_WAIT_MS) {
+        break;
+      }
+
+      console.warn(
+        `Groq 429/transient (status ${response.status}), retry ${attempt + 1}/${MAX_RETRIES} in ${waitMs}ms`
+      );
+      await sleep(waitMs);
     }
 
-    return sendJson(res, 200, data);
+    return sendJson(res, response.status, {
+      error: "Groq API error",
+      details: data,
+    });
   } catch (error) {
     return sendJson(res, 500, {
       error: "Groq API request failed",

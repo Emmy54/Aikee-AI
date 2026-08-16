@@ -202,7 +202,7 @@ export function MinimalistStudentCV2({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 24 }}>
         <SideHeading>Contact</SideHeading>
         {contactItems.map(({ icon, text }) => (
-          <div key={`${icon}-${text}`} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 9 }}>
+          <div key={`${icon} className="pdf-avoid-break"-${text}`} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 9 }}>
             <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1 }}>{icon}</span>
             <span style={{ fontSize: 12, color: MID, lineHeight: 1.4 }}>{text}</span>
           </div>
@@ -213,7 +213,7 @@ export function MinimalistStudentCV2({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 24 }}>
         <SideHeading>Education</SideHeading>
         {safeEducation.map((edu, i) => (
-          <div key={i} style={{ marginBottom: 14 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 14 }}>
             <div style={{ fontWeight: 600, fontSize: 12.5, color: DARK, marginBottom: 1 }}>{edu.degree}</div>
             <div style={{ fontSize: 12, color: MID }}>{edu.school}</div>
             <div style={{ fontSize: 11.5, color: LIGHT, marginTop: 1 }}>{edu.years}</div>
@@ -270,7 +270,7 @@ export function MinimalistStudentCV2({ data = DEFAULT_DATA }) {
         <SectionHeading>Reference</SectionHeading>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18, marginTop: 6 }}>
           {safeReferences.map((ref, i) => (
-            <div key={i}>
+            <div key={i} className="pdf-avoid-break">
               <div style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 700, fontSize: 14, color: DARK, marginBottom: 2 }}>{ref.name}</div>
               <div style={{ fontSize: 12, color: MID, marginBottom: 5 }}>{ref.company}</div>
               {ref.phone && <div style={{ fontSize: 12, color: DARK, marginBottom: 2 }}><strong>Phone: </strong>{ref.phone}</div>}
@@ -287,6 +287,7 @@ export function MinimalistStudentCV2({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap');
         .msc2-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="msc2-cv" style={{

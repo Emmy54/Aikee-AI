@@ -7,4 +7,7 @@ build/
 *.log
 .DS_Store
 
+# Local editor / tooling
+.claude/
+.vscode/
 

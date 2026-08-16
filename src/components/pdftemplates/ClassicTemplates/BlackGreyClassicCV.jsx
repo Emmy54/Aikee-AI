@@ -83,7 +83,7 @@ export function BlackGreyClassicCV({ data = DEFAULT_DATA }) {
     contact: (
       <SideSection title="Contact">
         {[{ icon: "📞", t: phone }, { icon: "✉", t: email }, { icon: "📍", t: address }].filter(({ t }) => t).map(({ icon, t }) => (
-          <div key={t} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
+          <div key={t} className="pdf-avoid-break" style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
             <span style={{ fontSize: 14, color: LIGHT, flexShrink: 0 }}>{icon}</span>
             <span style={{ fontSize: 12, color: LIGHT, lineHeight: 1.4 }}>{t}</span>
           </div>
@@ -93,7 +93,7 @@ export function BlackGreyClassicCV({ data = DEFAULT_DATA }) {
     skills: (
       <SideSection title="Skills">
         {skills.map(s => (
-          <div key={s} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: OFFWHITE, marginBottom: 7 }}>
+          <div key={s} className="pdf-avoid-break" style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: OFFWHITE, marginBottom: 7 }}>
             <span style={{ color: LIGHT, fontSize: 14 }}>•</span>{s}
           </div>
         ))}
@@ -102,7 +102,7 @@ export function BlackGreyClassicCV({ data = DEFAULT_DATA }) {
     education: (
       <SideSection title="Education">
         {education.map((e, i) => (
-          <div key={i} style={{ marginBottom: 14 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 14 }}>
             <div style={{ fontWeight: 700, fontSize: 12.5, color: WHITE, letterSpacing: 0.5 }}>{e.level}</div>
             <div style={{ fontSize: 12, color: LIGHT }}>{e.school}</div>
             <div style={{ fontSize: 11.5, color: "#777" }}>{e.years}</div>
@@ -112,19 +112,19 @@ export function BlackGreyClassicCV({ data = DEFAULT_DATA }) {
     ),
     languages: (
       <SideSection title="Language">
-        {languages.map(l => <div key={l} style={{ fontSize: 12.5, color: OFFWHITE, marginBottom: 5 }}>{l}</div>)}
+        {languages.map(l => <div key={l} className="pdf-avoid-break" style={{ fontSize: 12.5, color: OFFWHITE, marginBottom: 5 }}>{l}</div>)}
       </SideSection>
     ),
     experience: (
       <div style={{ padding: "28px 32px" }}>
         <MainSection title="Experience">
           {experience.map((exp, i) => (
-            <div key={i} style={{ marginBottom: 20 }}>
+            <div key={i} className="pdf-avoid-break" style={{ marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 13.5, color: WHITE, letterSpacing: 1, marginBottom: 2 }}>{exp.role}</div>
               <div style={{ fontSize: 12.5, color: LIGHT, marginBottom: 2 }}>{exp.company}</div>
               <div style={{ fontSize: 11.5, color: "#666", marginBottom: 7 }}>{exp.years}</div>
               {exp.bullets.map((b, j) => (
-                <div key={j} style={{ display: "flex", gap: 8, fontSize: 12, color: OFFWHITE, lineHeight: 1.6, marginBottom: 4 }}>
+                <div key={j} className="pdf-avoid-break" style={{ display: "flex", gap: 8, fontSize: 12, color: OFFWHITE, lineHeight: 1.6, marginBottom: 4 }}>
                   <span style={{ color: LIGHT, flexShrink: 0 }}>•</span><span>{b}</span>
                 </div>
               ))}
@@ -142,7 +142,9 @@ export function BlackGreyClassicCV({ data = DEFAULT_DATA }) {
 
   return (
     <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Great+Vibes&family=Barlow:wght@300;400;600;700&display=swap'); .bgc-cv * { box-sizing: border-box; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Great+Vibes&family=Barlow:wght@300;400;600;700&display=swap'); .bgc-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
+      `}</style>
       <div className="bgc-cv" style={{ width: 720, minHeight: 1020, background: CHARCOAL, fontFamily: "'Barlow', sans-serif", color: WHITE, display: "grid", gridTemplateColumns: "300px 1fr" }}>
 
         {/* LEFT — full height photo column */}

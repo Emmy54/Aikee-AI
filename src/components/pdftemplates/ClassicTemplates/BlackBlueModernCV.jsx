@@ -76,7 +76,7 @@ export function BlackBlueModernCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 24 }}>
         <SectionTitle>Contact</SectionTitle>
         {[{ icon: "📞", t: phone }, { icon: "✉", t: email }, { icon: "📍", t: address }].filter(({ t }) => t).map(({ icon, t }) => (
-          <div key={t} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 8 }}>
+          <div key={t} className="pdf-avoid-break" style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 8 }}>
             <span style={{ fontSize: 13, flexShrink: 0, marginTop: 1, color: PURPLE }}>{icon}</span>
             <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.4 }}>{t}</span>
           </div>
@@ -87,7 +87,7 @@ export function BlackBlueModernCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 24 }}>
         <SectionTitle>Education</SectionTitle>
         {education.map((e, i) => (
-          <div key={i} style={{ marginBottom: 10 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 10 }}>
             <div style={{ fontWeight: 700, fontSize: 12.5, color: WHITE }}>{e.school}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{e.degree}</div>
             <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.4)", fontStyle: "italic" }}>Graduated: {e.graduated}</div>
@@ -98,21 +98,21 @@ export function BlackBlueModernCV({ data = DEFAULT_DATA }) {
     skills: (
       <div>
         <SectionTitle>Skills</SectionTitle>
-        {skills.map(s => <div key={s} style={{ fontSize: 12.5, color: "rgba(255,255,255,0.75)", marginBottom: 6 }}>{s}</div>)}
+        {skills.map(s => <div key={s} className="pdf-avoid-break" style={{ fontSize: 12.5, color: "rgba(255,255,255,0.75)", marginBottom: 6 }}>{s}</div>)}
       </div>
     ),
     experience: (
       <div style={{ marginBottom: 24 }}>
         <MainSectionTitle>Professional Experience</MainSectionTitle>
         {experience.map((exp, i) => (
-          <div key={i} style={{ marginBottom: 18 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 18 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 2 }}>
               <span style={{ fontSize: 13.5, color: "rgba(255,255,255,0.8)", fontWeight: 400 }}>{exp.role}</span>
               <span style={{ fontSize: 11.5, fontStyle: "italic", color: "rgba(255,255,255,0.5)" }}>{exp.years}</span>
             </div>
             <div style={{ fontWeight: 700, fontSize: 13, color: WHITE, marginBottom: 7 }}>{exp.company} | {exp.location}</div>
             {exp.bullets.map((b, j) => (
-              <div key={j} style={{ display: "flex", gap: 8, fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.6, marginBottom: 4 }}>
+              <div key={j} className="pdf-avoid-break" style={{ display: "flex", gap: 8, fontSize: 12, color: "rgba(255,255,255,0.65)", lineHeight: 1.6, marginBottom: 4 }}>
                 <span style={{ color: PURPLE, flexShrink: 0 }}>•</span><span>{b}</span>
               </div>
             ))}
@@ -124,7 +124,7 @@ export function BlackBlueModernCV({ data = DEFAULT_DATA }) {
       <div style={{ padding: "20px 28px 28px 22px", borderRight: `1px solid ${LGRAY}` }}>
         <MainSectionTitle>Certification</MainSectionTitle>
         {certifications.map(c => (
-          <div key={c} style={{ display: "flex", gap: 8, fontSize: 12.5, color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>
+          <div key={c} className="pdf-avoid-break" style={{ display: "flex", gap: 8, fontSize: 12.5, color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>
             <span style={{ color: PURPLE }}>•</span><span>{c}</span>
           </div>
         ))}
@@ -135,7 +135,7 @@ export function BlackBlueModernCV({ data = DEFAULT_DATA }) {
         <MainSectionTitle>Language</MainSectionTitle>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 12px" }}>
           {languages.map(l => (
-            <div key={l} style={{ display: "flex", gap: 8, fontSize: 12.5, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>
+            <div key={l} className="pdf-avoid-break" style={{ display: "flex", gap: 8, fontSize: 12.5, color: "rgba(255,255,255,0.7)", marginBottom: 4 }}>
               <span style={{ color: PURPLE }}>•</span><span>{l}</span>
             </div>
           ))}
@@ -151,7 +151,9 @@ export function BlackBlueModernCV({ data = DEFAULT_DATA }) {
 
   return (
     <>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&display=swap'); .bbm-cv * { box-sizing: border-box; }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;600;700;800&display=swap'); .bbm-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
+      `}</style>
       <div className="bbm-cv" style={{ width: 700, minHeight: 980, background: DARK, fontFamily: "'Barlow', sans-serif", color: WHITE }}>
 
         {/* Header: split purple-left / dark-right */}

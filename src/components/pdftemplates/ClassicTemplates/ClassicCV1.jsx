@@ -30,12 +30,20 @@ const DEFAULT_DATA = {
     "Adaptability to Change",
   ],
   languages: ["English (Fluent)"],
-  reference: {
-    name: "Estelle Darcy",
-    company: "Wardiere Inc. / CTO",
-    phone: "+124-4236-7894",
-    email: "hello@ahmedd saaahh.com",
-  },
+  reference: [
+    {
+      name: "Estelle Darcy",
+      company: "Wardiere Inc. / CTO",
+      phone: "+124-4236-7894",
+      email: "hello@ahmedd saaahh.com",
+    },
+    {
+      name: "Estelle Darcy",
+      company: "Wardiere Inc. / CTO",
+      phone: "+124-4236-7894",
+      email: "hello@ahmedd saaahh.com",
+    }
+  ],
   experience: [
     {
       company: "Borcelle Studio",
@@ -239,7 +247,7 @@ export function ProfessionalCV({ data = DEFAULT_DATA }) {
         <div style={{ flex: 1, paddingTop: 4 }}>
           <SectionHeading>Work Experience</SectionHeading>
           {safeExperience.map((exp, i) => (
-            <div key={i} style={{ marginBottom: i < safeExperience.length - 1 ? 18 : 0 }}>
+            <div key={i} className="pdf-avoid-break" style={{ marginBottom: i < safeExperience.length - 1 ? 18 : 0 }}>
               <div style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -286,7 +294,7 @@ export function ProfessionalCV({ data = DEFAULT_DATA }) {
         <div style={{ flex: 1, paddingTop: 4 }}>
           <SectionHeading>Education</SectionHeading>
           {safeEducation.map((edu, i) => (
-            <div key={i} style={{ marginBottom: 12 }}>
+            <div key={i} className="pdf-avoid-break" style={{ marginBottom: 12 }}>
               <div style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -344,6 +352,7 @@ export function ProfessionalCV({ data = DEFAULT_DATA }) {
         .pro-cv ul { margin: 0; padding: 0; list-style: none; }
         .pro-cv li::before { content: "•"; margin-right: 8px; color: #1a2e4a; }
         .pro-cv li { display: flex; align-items: flex-start; font-size: 12px; color: #333; line-height: 1.55; margin-bottom: 5px; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div

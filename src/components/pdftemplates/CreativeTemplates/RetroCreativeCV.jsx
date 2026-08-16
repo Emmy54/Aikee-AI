@@ -198,7 +198,7 @@ export function RetroCreativeCV({ data = DEFAULT_DATA }) {
         <Rainbow style={{ position: "absolute", top: -16, right: -8 }} />
         <RetroHeading>Skills</RetroHeading>
         {skills.map((s, i) => (
-          <div key={i} style={{ marginBottom: 10 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 12.5, color: DARK, marginBottom: 4, fontWeight: 600 }}>{s.name}</div>
             <TwoToneBar green={s.green} yellow={s.yellow} />
           </div>
@@ -208,7 +208,7 @@ export function RetroCreativeCV({ data = DEFAULT_DATA }) {
 
         <RetroHeading>Language</RetroHeading>
         {languages.map((l, i) => (
-          <div key={i} style={{ marginBottom: 10 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 10 }}>
             <div style={{ fontSize: 12.5, color: DARK, marginBottom: 4, fontWeight: 600 }}>{l.name}</div>
             <TwoToneBar green={l.green} yellow={l.yellow} />
           </div>
@@ -231,7 +231,7 @@ export function RetroCreativeCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 18 }}>
         <RetroHeading>Education</RetroHeading>
         {education.map((edu, i) => (
-          <div key={i} style={{
+          <div key={i} className="pdf-avoid-break" style={{
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -255,7 +255,7 @@ export function RetroCreativeCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 18 }}>
         <RetroHeading>Experience</RetroHeading>
         {experience.map((exp, i) => (
-          <div key={i} style={{ marginBottom: i < experience.length - 1 ? 14 : 0 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: i < experience.length - 1 ? 14 : 0 }}>
             <div style={{ fontWeight: 800, fontSize: 13.5, color: DARK, marginBottom: 3 }}>
               {exp.company}
             </div>
@@ -292,7 +292,7 @@ export function RetroCreativeCV({ data = DEFAULT_DATA }) {
           { icon: "✉", text: email },
           { icon: "📍", text: address },
         ].filter(({ text }) => text).map(({ icon, text }) => (
-          <div key={text} style={{
+          <div key={text} className="pdf-avoid-break" style={{
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -327,6 +327,7 @@ export function RetroCreativeCV({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
         .retro-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="retro-cv" style={{

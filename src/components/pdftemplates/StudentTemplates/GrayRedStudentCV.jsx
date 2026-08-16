@@ -82,7 +82,7 @@ function Entry({ role, company, years, bullets }) {
       <div style={{ fontSize: 12, color: MID }}>{company}</div>
       <div style={{ fontSize: 12, color: "#999", marginBottom: 7 }}>{years}</div>
       {bullets?.map((b, i) => (
-        <div key={i} style={{ display: "flex", gap: 8, fontSize: 12, color: MID, lineHeight: 1.6, marginBottom: 4 }}>
+        <div key={i} className="pdf-avoid-break" style={{ display: "flex", gap: 8, fontSize: 12, color: MID, lineHeight: 1.6, marginBottom: 4 }}>
           <span style={{ color: RED, flexShrink: 0 }}>•</span><span>{b}</span>
         </div>
       ))}
@@ -145,7 +145,7 @@ export function GrayRedStudentCV({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 20 }}>
         <RedBadge>SKILLS</RedBadge>
         {safeSkills.map((s) => (
-          <div key={s} style={{ fontSize: 12.5, color: DARK, marginBottom: 7, paddingLeft: 2 }}>{s}</div>
+          <div key={s} className="pdf-avoid-break" style={{ fontSize: 12.5, color: DARK, marginBottom: 7, paddingLeft: 2 }}>{s}</div>
         ))}
       </div>
     ),
@@ -153,7 +153,7 @@ export function GrayRedStudentCV({ data = DEFAULT_DATA }) {
       <div>
         <RedBadge>EDUCATION</RedBadge>
         {safeEducation.map((e, i) => (
-          <div key={i} style={{ marginBottom: 12 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 12 }}>
             <div style={{ fontWeight: 700, fontSize: 12.5, color: DARK }}>{e.level}</div>
             <div style={{ fontSize: 12, color: MID }}>{e.school}</div>
             <div style={{ fontSize: 11.5, color: "#999" }}>{e.years}</div>
@@ -166,7 +166,7 @@ export function GrayRedStudentCV({ data = DEFAULT_DATA }) {
         <RedBadge>CONTACT</RedBadge>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
           {contactItems.map(({ icon, text }) => (
-            <div key={`${icon}-${text}`} style={{ display: "flex", gap: 7, alignItems: "center", fontSize: 12.5, color: DARK }}>
+            <div key={`${icon} className="pdf-avoid-break"-${text}`} style={{ display: "flex", gap: 7, alignItems: "center", fontSize: 12.5, color: DARK }}>
               <div style={{ width: 22, height: 22, borderRadius: "50%", background: RED, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>{icon}</div>
               <span>{text}</span>
             </div>
@@ -193,6 +193,7 @@ export function GrayRedStudentCV({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap');
         .grsc-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="grsc-cv" style={{ width: 680, minHeight: 980, background: GRAY, fontFamily: "'Barlow', sans-serif", color: DARK }}>

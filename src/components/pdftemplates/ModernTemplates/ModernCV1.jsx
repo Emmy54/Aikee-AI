@@ -196,7 +196,7 @@ export function ModernCV1({ data = DEFAULT_DATA }) {
           { label: "Email", value: email },
           { label: "Address", value: address },
         ].filter(({ value }) => value).map(({ label, value }) => (
-          <div key={label} style={{ marginBottom: 12 }}>
+          <div key={label} className="pdf-avoid-break" style={{ marginBottom: 12 }}>
             <div style={{
               fontWeight: 700,
               fontSize: 13,
@@ -212,7 +212,7 @@ export function ModernCV1({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 28 }}>
         <SidebarHeading>Education</SidebarHeading>
         {education.map((edu, i) => (
-          <div key={i} style={{ marginBottom: 14 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 14 }}>
             <div style={{
               fontWeight: 700,
               fontSize: 13,
@@ -254,7 +254,7 @@ export function ModernCV1({ data = DEFAULT_DATA }) {
       <>
         <MainHeading>Professional Experience</MainHeading>
         {experience.map((exp, i) => (
-          <div key={i} style={{
+          <div key={i} className="pdf-avoid-break" style={{
             display: "grid",
             gridTemplateColumns: "64px 1fr",
             gap: 16,
@@ -315,6 +315,7 @@ export function ModernCV1({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Lato:wght@300;400;700&display=swap');
         .mod1-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="mod1-cv" style={{

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 import { userProfileOperations } from "../../utils/databaseHelpers";
 import { colors, css } from "../../constants/theme";
@@ -15,6 +15,15 @@ export default function SignIn({ onSignInSuccess }) {
   const [message, setMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isCompactView, setIsCompactView] = useState(false);
+
+  useEffect(() => {
+    const updateView = () => setIsCompactView(window.innerWidth < 980);
+    updateView();
+    window.addEventListener("resize", updateView);
+
+    return () => window.removeEventListener("resize", updateView);
+  }, []);
 
   const handleAuthError = (err) => {
     setError(err.message || "An error occurred. Please try again.");
@@ -37,9 +46,7 @@ export default function SignIn({ onSignInSuccess }) {
         handleAuthError(error);
       } else if (data.user) {
         setMessage("Sign in successful! Redirecting...");
-        setTimeout(() => {
-          onSignInSuccess(data.user);
-        }, 1000);
+        onSignInSuccess?.(data.user);
       }
     } catch (err) {
       handleAuthError(err);
@@ -53,6 +60,12 @@ export default function SignIn({ onSignInSuccess }) {
     setLoading(true);
     setError("");
     setMessage("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match. Please try again.");
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -150,181 +163,214 @@ export default function SignIn({ onSignInSuccess }) {
 
   return (
     <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>Nex<span color="#000000">Hire</span></h1>
-          <p style={styles.subtitle}>
-            {isSignUp ? "Create your account" : "Welcome back"}
+      <div
+        style={{
+          ...styles.shell,
+          gridTemplateColumns: isCompactView ? "1fr" : "1.05fr 0.95fr",
+        }}
+      >
+        <aside style={styles.heroPanel}>
+          <div style={styles.eyebrow}>AI resume builder</div>
+          <h1 style={styles.heroTitle}>Build your next career story with clarity.</h1>
+          <p style={styles.heroText}>
+            Create a polished CV, save your progress, and keep every draft in one place.
           </p>
-        </div>
 
-        <form onSubmit={isSignUp ? handleSignUp : handleSignIn} style={styles.form}>
-          {isSignUp && (
+          <div style={styles.featureList}>
+            <div style={styles.featureItem}>✨ Fast onboarding</div>
+            <div style={styles.featureItem}>📄 Smart CV templates</div>
+            <div style={styles.featureItem}>🔐 Secure account access</div>
+          </div>
+
+          <div style={styles.statCard}>
+            <strong style={styles.statValue}>3x</strong>
+            <span style={styles.statLabel}>faster than traditional CV editing</span>
+          </div>
+        </aside>
+
+        <section style={styles.card}>
+          <div style={styles.header}>
+            <p style={styles.kicker}><span style={styles.titleAccent}>Nex</span>Hire</p>
+            <h2 style={styles.title}>{isSignUp ? "Create your account" : "Sign in to continue"}</h2>
+            <p style={styles.subtitle}>
+              {isSignUp
+                ? "Start your profile in under two minutes."
+                : "Pick up where you left off and keep your CV moving."}
+            </p>
+          </div>
+
+          <form onSubmit={isSignUp ? handleSignUp : handleSignIn} style={styles.form}>
+            {isSignUp && (
+              <div
+                style={{
+                  ...styles.rowGroup,
+                  gridTemplateColumns: isCompactView ? "1fr" : "1fr 1fr",
+                }}
+              >
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>First name</label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="John"
+                    required
+                    style={styles.input}
+                    disabled={loading}
+                  />
+                </div>
+                <div style={styles.inputGroup}>
+                  <label style={styles.label}>Last name</label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Doe"
+                    required
+                    style={styles.input}
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            )}
+
             <div style={styles.inputGroup}>
-              <label style={styles.label}>First Name</label>
+              <label style={styles.label}>Email</label>
               <input
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(
-                  e.target.value)}
-                placeholder="Your First Name (e.g. John)"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="your.email@example.com"
                 required
                 style={styles.input}
                 disabled={loading}
               />
             </div>
-          )}
 
-          {isSignUp && (
             <div style={styles.inputGroup}>
-              <label style={styles.label}>Last Name</label>
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(
-                  e.target.value)}
-                placeholder="Your Last Name (e.g. Doe)"
-                required
-                style={styles.input}
-                disabled={loading}
-              />
+              <label style={styles.label}>Password</label>
+              <div style={styles.passwordWrap}>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  id="password"
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  required
+                  style={styles.input}
+                  disabled={loading}
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={togglePasswordVisibility}
+                  style={styles.togglePassword}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
-          )}
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your.email@example.com"
-              required
-              style={styles.input}
-              disabled={loading}
-            />
-          </div>
+            {isSignUp && (
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Confirm password</label>
+                <div style={styles.passwordWrap}>
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    id="confirmPassword"
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm your password"
+                    required
+                    style={styles.input}
+                    disabled={loading}
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={toggleConfirmPasswordVisibility}
+                    style={styles.togglePassword}
+                  >
+                    {showConfirmPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+            )}
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Password</label>
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              id="password"
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
-              required
-              style={styles.input}
+            {error && <div style={styles.errorMessage}>{error}</div>}
+            {message && <div style={styles.successMessage}>{message}</div>}
+
+            <button
+              type="submit"
+              style={{
+                ...styles.button,
+                ...styles.primaryButton,
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
               disabled={loading}
-              minLength={6}
-            />
-            <button 
-              type="button" 
-              onClick={togglePasswordVisibility}
-              style={styles.togglePassword}
             >
-              {showPassword ? "Hide Password" : "Show Password"}
+              {loading ? "Loading..." : isSignUp ? "Create account" : "Sign in"}
             </button>
-          </div>
+          </form>
 
-          {isSignUp && (
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Confirm Password</label>
-              <input
-                type={showConfirmPassword ? "text" : "password"}
-                value={confirmPassword}
-                id="confirmPassword"
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm your password"
-              required
-              style={styles.input}
-              disabled={loading}
-              minLength={6}
-            />
-            <button 
-              type="button" 
-              onClick={toggleConfirmPasswordVisibility}
-              style={styles.togglePassword}
-            >
-              {showConfirmPassword ? "Hide Password" : "Show Password"}
-            </button>
-          </div>
-          )}
+          <div style={styles.divider}><span>Or continue with</span></div>
 
-          
-
-          {error && <div style={styles.errorMessage}>{error}</div>}
-          {message && <div style={styles.successMessage}>{message}</div>}
-
-          <button
-            type="submit"
+          <div
             style={{
-              ...styles.button,
-              ...styles.primaryButton,
-              opacity: loading ? 0.7 : 1,
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-            disabled={loading}
-          >
-            {loading
-              ? "Loading..."
-              : isSignUp
-              ? "Create Account"
-              : "Sign In"}
-          </button>
-        </form>
-
-        <div style={styles.divider}>
-          <span>Or continue with</span>
-        </div>
-
-        <div style={styles.oauthButtons}>
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            disabled={loading}
-            style={{
-              ...styles.oauthButton,
-              opacity: loading ? 0.7 : 1,
-              cursor: loading ? "not-allowed" : "pointer",
+              ...styles.oauthButtons,
+              gridTemplateColumns: isCompactView ? "1fr" : "1fr 1fr",
             }}
           >
-            <span style={styles.oauthIcon}>🔵</span> Google
-          </button>
-          <button
-            type="button"
-            onClick={handleGitHubSignIn}
-            disabled={loading}
-            style={{
-              ...styles.oauthButton,
-              opacity: loading ? 0.7 : 1,
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
-            <span style={styles.oauthIcon}>⚫</span> GitHub
-          </button>
-        </div>
-
-        <div style={styles.toggleAuth}>
-          <p style={styles.toggleText}>
-            {isSignUp ? "Already have an account?" : "Don't have an account?"}
             <button
               type="button"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setError("");
-                setMessage("");
-                setEmail("");
-                setPassword("");
-                setFirstName("");
-                setLastName("");
-              }}
-              style={styles.toggleButton}
+              onClick={handleGoogleSignIn}
               disabled={loading}
+              style={{
+                ...styles.oauthButton,
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
             >
-              {isSignUp ? "Sign In" : "Sign Up"}
+              <span style={styles.oauthIcon}>🔵</span> Google
             </button>
-          </p>
-        </div>
+            <button
+              type="button"
+              onClick={handleGitHubSignIn}
+              disabled={loading}
+              style={{
+                ...styles.oauthButton,
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
+            >
+              <span style={styles.oauthIcon}>⚫</span> GitHub
+            </button>
+          </div>
+
+          <div style={styles.toggleAuth}>
+            <p style={styles.toggleText}>
+              {isSignUp ? "Already have an account?" : "Don’t have an account?"}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError("");
+                  setMessage("");
+                  setEmail("");
+                  setPassword("");
+                  setConfirmPassword("");
+                  setFirstName("");
+                  setLastName("");
+                }}
+                style={styles.toggleButton}
+                disabled={loading}
+              >
+                {isSignUp ? "Sign in" : "Sign up"}
+              </button>
+            </p>
+          </div>
+        </section>
       </div>
     </div>
   );
@@ -332,51 +378,137 @@ export default function SignIn({ onSignInSuccess }) {
 
 const styles = {
   container: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
     minHeight: "100vh",
-    background: colors.surface,
-    padding: "1.25rem",
+    background: `linear-gradient(135deg, ${colors.surface} 0%, ${colors.surfaceContainerLow} 45%, ${colors.surfaceContainer} 100%)`,
+    padding: "1rem",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+  },
+  shell: {
+    width: "100%",
+    maxWidth: "1180px",
+    display: "grid",
+    gridTemplateColumns: "1.05fr 0.95fr",
+    gap: "1rem",
+    alignItems: "stretch",
+  },
+  heroPanel: {
+    background: `linear-gradient(160deg, ${colors.primary} 0%, ${colors.primaryContainer} 55%, #0f4cc8 100%)`,
+    color: colors.onPrimary,
+    borderRadius: "1.5rem",
+    padding: "2rem",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    boxShadow: "0 18px 40px rgba(0, 74, 198, 0.25)",
+    minHeight: "520px",
+  },
+  eyebrow: {
+    display: "inline-flex",
+    alignSelf: "flex-start",
+    background: "rgba(255,255,255,0.14)",
+    borderRadius: "999px",
+    padding: "0.4rem 0.7rem",
+    fontSize: "0.85rem",
+    fontWeight: "600",
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+  },
+  heroTitle: {
+    fontSize: "clamp(2rem, 6vw, 3rem)",
+    lineHeight: 1.05,
+    fontWeight: "700",
+    fontFamily: "'Manrope', sans-serif",
+    margin: "1rem 0 0.75rem",
+    letterSpacing: "-0.03em",
+  },
+  heroText: {
+    fontSize: "1rem",
+    lineHeight: 1.6,
+    color: "rgba(255,255,255,0.88)",
+    maxWidth: "28rem",
+  },
+  featureList: {
+    display: "grid",
+    gap: "0.65rem",
+    marginTop: "1rem",
+  },
+  featureItem: {
+    background: "rgba(255,255,255,0.12)",
+    borderRadius: "0.95rem",
+    padding: "0.65rem 0.8rem",
+    fontSize: "0.95rem",
+    backdropFilter: "blur(8px)",
+  },
+  statCard: {
+    marginTop: "1.25rem",
+    background: "rgba(255,255,255,0.12)",
+    borderRadius: "1rem",
+    padding: "1rem",
+    boxShadow: "0 12px 24px rgba(0, 0, 0, 0.08)",
+  },
+  statValue: {
+    display: "block",
+    fontSize: "1.6rem",
+    fontWeight: "700",
+    lineHeight: 1,
+  },
+  statLabel: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: "0.95rem",
   },
   card: {
     background: colors.surfaceContainerLowest,
-    borderRadius: "1rem",
-    padding: "2.5rem",
-    boxShadow: "0 0.625rem 2.5rem rgba(0, 23, 75, 0.08)",
-    maxWidth: "30rem",
-    width: "100%",
+    borderRadius: "1.5rem",
+    padding: "1.5rem",
+    boxShadow: "0 18px 40px rgba(0, 23, 75, 0.12)",
+    border: `1px solid ${colors.surfaceContainerHigh}`,
   },
   header: {
-    marginBottom: "1.875rem",
-    textAlign: "center",
+    marginBottom: "1rem",
+    textAlign: "left",
+  },
+  kicker: {
+    fontSize: "0.85rem",
+    textTransform: "uppercase",
+    letterSpacing: "0.12em",
+    color: colors.primary,
+    fontWeight: "700",
+    marginBottom: "0.35rem",
+  },
+  titleAccent: {
+    color: colors.onSurface,
   },
   title: {
-    fontSize: "1.75rem",
+    fontSize: "clamp(1.4rem, 4vw, 1.9rem)",
     fontWeight: "700",
-    margin: "0 0 0.5rem 0",
-    color: colors.primary,
+    margin: "0 0 0.35rem 0",
+    color: colors.onSurface,
     fontFamily: "'Manrope', sans-serif",
     letterSpacing: "-0.02em",
   },
   subtitle: {
-    fontSize: "0.875rem",
+    fontSize: "0.95rem",
     color: colors.onSurfaceVariant,
     margin: 0,
-    fontFamily: "'Inter', sans-serif",
+    lineHeight: 1.5,
   },
   form: {
-    marginBottom: "1.25rem",
     display: "flex",
     flexDirection: "column",
-    gap: "1rem",
+    gap: "0.9rem",
+  },
+  rowGroup: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "0.75rem",
   },
   inputGroup: {
     display: "flex",
     flexDirection: "column",
-    position: "relative",
-    gap: "0.5rem",
+    gap: "0.45rem",
   },
   label: {
     fontSize: "0.875rem",
@@ -384,95 +516,94 @@ const styles = {
     color: colors.onSurface,
     fontFamily: "'Inter', sans-serif",
   },
+  passwordWrap: {
+    position: "relative",
+  },
   input: {
-    padding: "0.625rem 0.75rem",
-    border: "none",
-    borderRadius: "0.75rem",
-    fontSize: "0.875rem",
+    padding: "0.75rem 0.85rem",
+    border: "1px solid transparent",
+    borderRadius: "0.9rem",
+    fontSize: "0.95rem",
     fontFamily: "inherit",
-    transition: "box-shadow 0.2s, background 0.2s",
+    transition: "box-shadow 0.2s, border-color 0.2s, background 0.2s",
     boxSizing: "border-box",
     width: "100%",
     background: colors.surfaceContainerLow,
     color: colors.onSurface,
   },
   togglePassword: {
-    background: "none",
-    border: "none",
+    position: "absolute",
+    top: "50%",
+    right: "0.3rem",
+    transform: "translateY(-50%)",
+    background: "rgba(255,255,255,0.9)",
+    border: `1px solid ${colors.surfaceContainerHigh}`,
+    borderRadius: "999px",
     cursor: "pointer",
     color: colors.primary,
     fontSize: "0.75rem",
-    fontWeight: "500",
-    padding: "0.25rem 0.5rem",
-    marginTop: "0.25rem",
+    fontWeight: "600",
+    padding: "0.28rem 0.45rem",
     fontFamily: "'Inter', sans-serif",
-    transition: "color 0.2s, opacity 0.2s",
-    position: "absolute",
-    right: "0.10rem",
-
   },
-  
   errorMessage: {
-    padding: "0.625rem 0.75rem",
-    background: "rgba(220, 38, 38, 0.1)",
-    border: "none",
-    borderRadius: "0.5rem",
+    padding: "0.65rem 0.75rem",
+    background: "rgba(220, 38, 38, 0.08)",
+    borderRadius: "0.75rem",
     color: "#dc2626",
-    fontSize: "0.8125rem",
-    marginTop: "0.3125rem",
+    fontSize: "0.875rem",
     fontFamily: "'Inter', sans-serif",
   },
   successMessage: {
-    padding: "0.625rem 0.75rem",
+    padding: "0.65rem 0.75rem",
     background: "rgba(16, 185, 129, 0.1)",
-    border: "none",
-    borderRadius: "0.5rem",
+    borderRadius: "0.75rem",
     color: colors.success,
-    fontSize: "0.8125rem",
-    marginTop: "0.3125rem",
+    fontSize: "0.875rem",
     fontFamily: "'Inter', sans-serif",
   },
   button: {
-    padding: "0.625rem 1rem",
+    padding: "0.8rem 1rem",
     border: "none",
-    borderRadius: "0.75rem",
-    fontSize: "0.875rem",
+    borderRadius: "0.95rem",
+    fontSize: "0.95rem",
     fontWeight: "600",
-    transition: "all 0.2s",
+    transition: "transform 0.15s ease, box-shadow 0.2s ease",
     cursor: "pointer",
     fontFamily: "'Inter', sans-serif",
   },
   primaryButton: {
     background: `linear-gradient(to right, ${colors.primary}, ${colors.primaryContainer})`,
     color: colors.onPrimary,
+    boxShadow: "0 12px 24px rgba(0, 74, 198, 0.18)",
   },
   divider: {
     display: "flex",
     alignItems: "center",
     gap: "0.75rem",
-    margin: "1.25rem 0",
+    margin: "1rem 0 0.75rem",
     color: colors.onSurfaceVariant,
-    fontSize: "0.8125rem",
+    fontSize: "0.82rem",
     fontFamily: "'Inter', sans-serif",
   },
   oauthButtons: {
-    display: "flex",
-    gap: "0.625rem",
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: "0.65rem",
   },
   oauthButton: {
-    flex: 1,
-    padding: "0.625rem 0.75rem",
-    border: "none",
-    borderRadius: "0.75rem",
+    padding: "0.75rem 0.8rem",
+    border: `1px solid ${colors.surfaceContainerHigh}`,
+    borderRadius: "0.95rem",
     background: colors.surfaceContainerLow,
     cursor: "pointer",
-    fontSize: "0.8125rem",
-    fontWeight: "500",
+    fontSize: "0.9rem",
+    fontWeight: "600",
     transition: "all 0.2s",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "0.375rem",
+    gap: "0.4rem",
     color: colors.onSurface,
     fontFamily: "'Inter', sans-serif",
   },
@@ -480,11 +611,11 @@ const styles = {
     fontSize: "1rem",
   },
   toggleAuth: {
-    marginTop: "1.25rem",
+    marginTop: "0.9rem",
     textAlign: "center",
   },
   toggleText: {
-    fontSize: "0.8125rem",
+    fontSize: "0.9rem",
     color: colors.onSurfaceVariant,
     margin: 0,
     fontFamily: "'Inter', sans-serif",
@@ -493,10 +624,10 @@ const styles = {
     background: "none",
     border: "none",
     color: colors.primary,
-    fontWeight: "600",
+    fontWeight: "700",
     cursor: "pointer",
     marginLeft: "0.25rem",
-    fontSize: "0.8125rem",
+    fontSize: "0.9rem",
     padding: 0,
     fontFamily: "'Inter', sans-serif",
   },

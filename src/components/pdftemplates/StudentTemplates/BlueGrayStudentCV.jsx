@@ -114,7 +114,7 @@ function Entry({ company, role, years, bullets }) {
       </div>
       {role && <div style={{ fontSize: 12, color: MID, fontStyle: "italic", marginBottom: 6 }}>{role}</div>}
       {bullets?.map((b, i) => (
-        <div key={i} style={{ display: "flex", gap: 7, fontSize: 12, color: MID, lineHeight: 1.6, marginBottom: 4 }}>
+        <div key={i} className="pdf-avoid-break" style={{ display: "flex", gap: 7, fontSize: 12, color: MID, lineHeight: 1.6, marginBottom: 4 }}>
           <span style={{ color: NAVY, flexShrink: 0 }}>•</span><span>{b}</span>
         </div>
       ))}
@@ -196,7 +196,7 @@ export function BlueGrayStudentCV({ data = DEFAULT_DATA }) {
         <SideHeading>Contact</SideHeading>
         <div style={{ marginTop: 12 }}>
           {contactItems.map(({ icon, text }) => (
-            <div key={`${icon}-${text}`} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 10 }}>
+            <div key={`${icon} className="pdf-avoid-break"-${text}`} style={{ display: "flex", gap: 9, alignItems: "flex-start", marginBottom: 10 }}>
               <span style={{ fontSize: 13, color: NAVY, flexShrink: 0, marginTop: 1 }}>{icon}</span>
               <span style={{ fontSize: 12, color: MID, lineHeight: 1.4 }}>{text}</span>
             </div>
@@ -233,7 +233,7 @@ export function BlueGrayStudentCV({ data = DEFAULT_DATA }) {
         <SideHeading>Reference</SideHeading>
         <div style={{ marginTop: 10 }}>
           {safeReferences.map((ref, i) => (
-            <div key={i} style={{ marginBottom: 14 }}>
+            <div key={i} className="pdf-avoid-break" style={{ marginBottom: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{ref.name}</div>
               <div style={{ fontSize: 12, color: MID, marginBottom: 4 }}>{ref.company}</div>
               {ref.phone && <div style={{ fontSize: 11.5, color: DARK }}><strong>Phone:</strong> {ref.phone}</div>}
@@ -295,6 +295,7 @@ export function BlueGrayStudentCV({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700;800&family=Lato:wght@300;400;700&display=swap');
         .bgsc-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="bgsc-cv" style={{ width: 720, minHeight: 1060, background: WHITE, fontFamily: "'Lato', sans-serif", color: DARK }}>

@@ -1,0 +1,812 @@
+<style>
+/*__FONTFACES__*/
+
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  /* Core palette — 6 named colors, each with a job. Two carry a contrast-safe
+     sibling for small text (bronze) and dark grounds (muted). */
+  --ledger: #0A0A0A;      /* primary ink; dark grounds; body text on light */
+  --bronze: #B8860B;      /* accent FILL only — buttons, rules, monogram, numerals */
+  --bronze-text: #8A6408; /* bronze as text/links on light (4.86:1 on paper) */
+  --paper: #F7F3EC;       /* warm page canvas */
+  --card: #FFFFFF;        /* raised surfaces */
+  --ink: #0A0A0A;         /* headings + body text on light */
+  --muted: #57534A;       /* secondary text on light (6.9:1 on paper) */
+  --border: #E7E0D2;      /* hairline rules on light */
+  --paper-on-dark: #F7F3EC;  /* text on ledger (17.9:1) */
+  --muted-on-dark: #B8B0A0;  /* secondary text on ledger (9.2:1) */
+
+  --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
+  /* Type scale — major third (1.25) */
+  --step--1: 0.8rem;
+  --step-0: 1rem;
+  --step-1: 1.25rem;
+  --step-2: 1.563rem;
+  --step-3: 1.953rem;
+  --step-4: 2.441rem;
+  --step-5: 3.052rem;
+  --display: clamp(2.6rem, 8vw, 5.5rem);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+
+  --maxw: 1080px;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--step-0);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- shared primitives ---------- */
+.inner { max-width: var(--maxw); margin: 0 auto; padding: 0 clamp(1.25rem, 5vw, 3.5rem); }
+
+.eyebrow {
+  font-family: var(--sans);
+  font-size: var(--step--1);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.rule-bronze { height: 2px; background: var(--bronze); border: 0; }
+
+h1, h2, h3 { font-family: var(--serif); font-weight: 600; line-height: 1.08; text-wrap: balance; margin: 0; }
+
+p { margin: 0; }
+
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* ---------- motion ---------- */
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.load { opacity: 0; animation: rise 0.7s var(--ease-out) forwards; animation-delay: var(--d, 0s); }
+
+@media (hover: hover) and (pointer: fine) {
+  .lift { transition: transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out); }
+  .lift:hover { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(10,10,10,0.10); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .load { opacity: 1; animation: none; transform: none; }
+  .wm-rule { animation: none !important; transform: none !important; }
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-delay: 0s !important; transition: none !important; }
+}
+
+/* ============================================================
+   MASTHEAD  (ledger-black)
+   ============================================================ */
+.masthead {
+  position: relative;
+  overflow: hidden;
+  background: var(--ledger);
+  color: var(--paper-on-dark);
+  padding: clamp(1.25rem, 4vw, 2rem) 0 clamp(3.5rem, 8vw, 6rem);
+}
+.docbar {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 1rem; flex-wrap: wrap;
+  padding-bottom: 1rem; margin-bottom: clamp(3rem, 9vw, 6rem);
+  border-bottom: 1px solid rgba(247,243,236,0.16);
+  color: var(--muted-on-dark);
+}
+.docbar .eyebrow { color: var(--muted-on-dark); }
+
+.watermark {
+  position: absolute;
+  right: -0.06em; top: 46%;
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(9rem, 34vw, 30rem);
+  line-height: 0.8;
+  color: rgba(184,134,11,0.07);
+  pointer-events: none; user-select: none;
+  letter-spacing: -0.03em;
+  z-index: 0;
+}
+.masthead .inner { position: relative; z-index: 1; }
+
+.mast-wordmark { display: inline-flex; flex-direction: column; gap: 0.5rem; }
+.mast-wordmark .wm-text {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: var(--display);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  color: var(--paper-on-dark);
+}
+.mast-wordmark .wm-text .ai {
+  font-family: var(--sans);
+  font-weight: 600;
+  color: var(--bronze);
+  font-size: 0.42em;
+  letter-spacing: 0.02em;
+  vertical-align: 0.42em;
+  margin-left: 0.18em;
+}
+.wm-rule {
+  height: 3px; width: 100%; background: var(--bronze);
+  transform-origin: left center;
+  animation: draw 0.9s var(--ease-out) 0.35s both;
+}
+
+.positioning {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--step-3);
+  line-height: 1.35;
+  max-width: 24ch;
+  margin-top: clamp(2rem, 5vw, 3rem);
+  color: var(--paper-on-dark);
+}
+.positioning .accent { color: var(--bronze); font-style: normal; }
+
+.gloss {
+  margin-top: clamp(2rem, 5vw, 3rem);
+  padding-left: 1.25rem;
+  border-left: 2px solid var(--bronze);
+  max-width: 46ch;
+}
+.gloss dt {
+  font-family: var(--serif); font-style: italic;
+  font-size: var(--step-1); color: var(--bronze);
+}
+.gloss dd { margin: 0.35rem 0 0; color: var(--muted-on-dark); font-size: var(--step-0); }
+
+.attributes {
+  display: flex; flex-wrap: wrap; gap: 0.6rem 1.4rem;
+  margin-top: clamp(2rem, 5vw, 3rem);
+  list-style: none; padding: 0;
+}
+.attributes li {
+  display: inline-flex; align-items: center; gap: 0.7rem;
+  font-size: var(--step--1); letter-spacing: 0.18em; text-transform: uppercase;
+  font-weight: 600; color: var(--paper-on-dark);
+}
+.attributes li::before { content: ""; width: 7px; height: 7px; background: var(--bronze); border-radius: 50%; }
+
+/* ============================================================
+   PLATES  (paper)
+   ============================================================ */
+.plate { padding: clamp(3.5rem, 8vw, 6rem) 0; border-bottom: 1px solid var(--border); }
+
+.plate-head {
+  display: grid; grid-template-columns: auto 1fr; gap: 0.4rem 1.5rem;
+  align-items: baseline; margin-bottom: clamp(2rem, 5vw, 3rem);
+}
+.plate-head .plate-no {
+  font-family: var(--serif); font-weight: 600; font-size: var(--step-1);
+  color: var(--bronze-text); grid-row: span 2;
+  padding-right: 1.4rem; border-right: 1px solid var(--border);
+}
+.plate-head h2 { font-size: var(--step-4); color: var(--ink); }
+.plate-head .plate-note { color: var(--muted); max-width: 60ch; font-size: var(--step-0); }
+.plate-head .plate-no + h2 { align-self: end; }
+
+/* ---- Plate I: identity ---- */
+.id-grid {
+  display: grid; gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+}
+.tile {
+  border: 1px solid var(--border); border-radius: 4px; background: var(--card);
+  padding: clamp(1.5rem, 3vw, 2rem); display: flex; flex-direction: column;
+  gap: 1rem; min-height: 190px;
+}
+.tile.on-ledger { background: var(--ledger); border-color: var(--ledger); }
+.tile .tile-label {
+  font-size: var(--step--1); letter-spacing: 0.16em; text-transform: uppercase;
+  font-weight: 600; color: var(--muted);
+}
+.tile.on-ledger .tile-label { color: var(--muted-on-dark); }
+.tile .tile-body { flex: 1; display: flex; align-items: center; justify-content: center; }
+
+/* wordmark component (reusable) */
+.wordmark { display: inline-flex; flex-direction: column; gap: 0.3rem; }
+.wordmark .wm-text { font-family: var(--serif); font-weight: 600; font-size: var(--step-3); line-height: 1; letter-spacing: -0.015em; color: var(--ink); }
+.wordmark .wm-text .ai { font-family: var(--sans); font-weight: 600; font-size: 0.44em; color: var(--bronze-text); vertical-align: 0.5em; margin-left: 0.14em; letter-spacing: 0.02em; }
+.wordmark .wm-baseline { height: 2px; background: var(--bronze); width: 100%; }
+.wordmark.inv .wm-text { color: var(--paper-on-dark); }
+.wordmark.inv .wm-text .ai { color: var(--bronze); }
+.wordmark.one-black .wm-text, .wordmark.one-black .wm-text .ai { color: var(--ink); }
+.wordmark.one-black .wm-baseline { background: var(--ink); }
+.wordmark.one-bronze .wm-text, .wordmark.one-bronze .wm-text .ai { color: var(--bronze-text); }
+.wordmark.one-bronze .wm-baseline { background: var(--bronze-text); }
+
+/* monogram */
+.monogram {
+  display: grid; place-items: center;
+  background: var(--ledger); color: var(--bronze);
+  font-family: var(--serif); font-weight: 600;
+  border-radius: 22%;
+  width: 96px; height: 96px; font-size: 3.4rem; line-height: 1;
+}
+
+/* favicon proofs at true pixel size */
+.favi-row { display: flex; align-items: flex-end; gap: 1.5rem; }
+.favi { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.favi .chip {
+  display: grid; place-items: center; background: var(--ledger); color: var(--bronze);
+  font-family: var(--serif); font-weight: 600; border-radius: 22%;
+}
+.favi .chip.px24 { width: 24px; height: 24px; font-size: 16px; }
+.favi .chip.px16 { width: 16px; height: 16px; font-size: 11px; }
+.favi .cap { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.04em; }
+
+/* signature-line motif */
+.signature { width: 100%; }
+.signature .sig-line { height: 2px; background: var(--bronze); width: 100%; }
+.signature .sig-mark { font-family: var(--serif); font-style: italic; font-size: var(--step-2); color: var(--ink); margin-bottom: 0.2rem; }
+.signature .sig-cap { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-top: 0.5rem; }
+
+.clearspace-note { font-size: var(--step--1); color: var(--muted); line-height: 1.5; }
+
+/* ---- Plate II: color ---- */
+.color-group + .color-group { margin-top: 2.25rem; }
+.color-group h3 { font-size: var(--step-1); color: var(--ink); margin-bottom: 1rem; }
+.color-table { display: flex; flex-direction: column; }
+.color-row {
+  display: grid;
+  grid-template-columns: 54px 1.4fr 92px 1fr;
+  gap: 1rem; align-items: center;
+  padding: 0.85rem 0; border-top: 1px solid var(--border);
+}
+.color-row:last-child { border-bottom: 1px solid var(--border); }
+.swatch { width: 54px; height: 40px; border-radius: 3px; border: 1px solid rgba(10,10,10,0.12); }
+.color-row .c-name { font-weight: 600; color: var(--ink); }
+.color-row .c-job { display: block; font-weight: 400; color: var(--muted); font-size: var(--step--1); margin-top: 0.15rem; line-height: 1.4; }
+.color-row .c-hex { font-family: var(--sans); font-weight: 500; color: var(--ink); font-size: var(--step--1); }
+.color-row .c-contrast { font-size: var(--step--1); color: var(--muted); }
+.color-row .c-contrast b { color: var(--ink); font-weight: 600; }
+.pass { color: var(--bronze-text); font-weight: 600; }
+.warn-flag { color: #9A2A20; font-weight: 600; }
+
+.callout {
+  margin-top: 1.75rem; padding: 1rem 1.25rem; background: var(--card);
+  border: 1px solid var(--border); border-left: 3px solid var(--bronze); border-radius: 3px;
+  font-size: var(--step--1); color: var(--muted); line-height: 1.55;
+}
+.callout b { color: var(--ink); }
+
+/* group on ledger */
+.color-group.on-ledger {
+  background: var(--ledger); border-radius: 5px; padding: 1.75rem clamp(1.25rem, 3vw, 2rem);
+}
+.color-group.on-ledger h3 { color: var(--paper-on-dark); }
+.color-group.on-ledger .color-row { border-color: rgba(247,243,236,0.16); }
+.color-group.on-ledger .c-name { color: var(--paper-on-dark); }
+.color-group.on-ledger .c-job { color: var(--muted-on-dark); }
+.color-group.on-ledger .c-hex { color: var(--paper-on-dark); }
+.color-group.on-ledger .c-contrast { color: var(--muted-on-dark); }
+.color-group.on-ledger .c-contrast b { color: var(--paper-on-dark); }
+.color-group.on-ledger .pass { color: var(--bronze); }
+
+/* ---- Plate III: type ---- */
+.type-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.spec-card { border: 1px solid var(--border); background: var(--card); border-radius: 4px; padding: clamp(1.5rem, 3vw, 2rem); }
+.spec-card .role { font-size: var(--step--1); letter-spacing: 0.16em; text-transform: uppercase; color: var(--bronze-text); font-weight: 600; }
+.spec-card .fam { font-family: var(--serif); font-size: var(--step-4); color: var(--ink); margin: 0.4rem 0 0.2rem; }
+.spec-card.sans .fam { font-family: var(--sans); font-weight: 700; }
+.spec-card .glyphs { font-size: var(--step-2); color: var(--muted); letter-spacing: 0.01em; margin-top: 0.6rem; }
+.spec-card.sans .glyphs { font-family: var(--sans); }
+.spec-card .weights { font-size: var(--step--1); color: var(--muted); margin-top: 1rem; line-height: 1.7; }
+
+.scale-ramp { margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.scale-ramp .row { display: flex; align-items: baseline; gap: 1rem; color: var(--ink); font-family: var(--serif); line-height: 1.1; white-space: nowrap; overflow: hidden; }
+.scale-ramp .row .sz { font-family: var(--sans); font-size: 0.7rem; color: var(--muted); width: 5.5rem; flex: none; letter-spacing: 0.03em; }
+
+.body-specimen { margin-top: 1.5rem; max-width: 65ch; color: var(--ink); font-size: var(--step-0); line-height: 1.7; }
+.uppercase-label { margin-top: 1.25rem; font-size: var(--step--1); letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; color: var(--bronze-text); }
+
+/* ---- Plate IV: in use ---- */
+.use-grid { display: grid; gap: 1.5rem; }
+.frame { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: var(--card); }
+.browserbar { display: flex; align-items: center; gap: 0.4rem; padding: 0.6rem 0.8rem; background: var(--card); border-bottom: 1px solid var(--border); }
+.browserbar .dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(10,10,10,0.15); }
+.browserbar .addr { margin-left: 0.6rem; font-size: 0.72rem; color: var(--muted); font-family: var(--sans); }
+
+/* hero mini */
+.hero-mini { background: var(--paper); padding: clamp(1.5rem, 4vw, 2.75rem); }
+.hero-mini .nav { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: clamp(1.5rem, 4vw, 2.5rem); }
+.hero-mini .nav .links { display: flex; gap: 1.1rem; font-size: 0.8rem; color: var(--muted); }
+.hero-mini .nav .links .btn-mini { color: var(--ledger); }
+.hero-body { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: clamp(1.5rem, 4vw, 2.5rem); align-items: center; }
+.hero-mini h1 { font-size: clamp(1.7rem, 4.5vw, 2.6rem); color: var(--ink); letter-spacing: -0.01em; }
+.hero-mini h1 .accent { color: var(--bronze-text); }
+.hero-mini .sub { color: var(--muted); margin-top: 0.9rem; font-size: 0.92rem; max-width: 38ch; }
+.hero-mini .cta-row { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.4rem; }
+
+.btn {
+  font-family: var(--sans); font-weight: 600; font-size: 0.85rem;
+  border-radius: 6px; padding: 0.6rem 1.05rem; border: 1px solid transparent;
+  cursor: default; display: inline-flex; align-items: center; gap: 0.4rem;
+  transition: transform 160ms var(--ease-out);
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--bronze); color: var(--ledger); box-shadow: 0 6px 16px rgba(10,10,10,0.12); }
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--ledger); }
+
+/* mini resume sheet */
+.sheet { background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 1.1rem; box-shadow: 0 12px 30px rgba(10,10,10,0.08); }
+.sheet .sheet-name { font-family: var(--serif); font-weight: 600; font-size: 1.05rem; color: var(--ink); }
+.sheet .sheet-sig { height: 2px; background: var(--bronze); width: 60%; margin: 0.3rem 0 0.9rem; }
+.sheet .sheet-line { height: 7px; border-radius: 2px; background: rgba(10,10,10,0.09); margin-bottom: 0.5rem; }
+.sheet .sheet-line.short { width: 55%; }
+.sheet .sheet-line.mid { width: 78%; }
+.sheet .sheet-tab { display: inline-block; margin-top: 0.4rem; font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 600; color: var(--ledger); background: var(--bronze); padding: 0.15rem 0.5rem; border-radius: 3px; }
+
+/* business card */
+.cards-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; }
+.bcard { aspect-ratio: 1.75 / 1; border-radius: 8px; padding: 1.25rem; display: flex; flex-direction: column; justify-content: space-between; }
+.bcard.front { background: var(--ledger); color: var(--paper-on-dark); align-items: center; justify-content: center; gap: 0.8rem; text-align: center; }
+.bcard.front .mono-sm { width: 44px; height: 44px; border-radius: 22%; background: var(--bronze); color: var(--ledger); display: grid; place-items: center; font-family: var(--serif); font-weight: 600; font-size: 1.5rem; }
+.bcard.back { background: var(--card); border: 1px solid var(--border); color: var(--ink); }
+.bcard.back .b-name { font-family: var(--serif); font-weight: 600; font-size: 1.15rem; }
+.bcard.back .b-sig { height: 2px; background: var(--bronze); width: 42%; margin: 0.35rem 0; }
+.bcard.back .b-role { color: var(--muted); font-size: 0.8rem; }
+.bcard.back .b-contact { font-size: 0.74rem; color: var(--muted); line-height: 1.6; }
+.bcard.back .b-contact b { color: var(--bronze-text); font-weight: 600; }
+
+/* avatars */
+.avatars { display: flex; gap: 1.25rem; align-items: center; flex-wrap: wrap; }
+.avatar { background: var(--ledger); color: var(--bronze); display: grid; place-items: center; font-family: var(--serif); font-weight: 600; width: 84px; height: 84px; font-size: 2.6rem; }
+.avatar.circle { border-radius: 50%; }
+.avatar.square { border-radius: 18%; }
+.avatar-cap { font-size: 0.72rem; color: var(--muted); }
+
+/* ---- Plate V: don'ts ---- */
+.donts { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.dont { border: 1px solid var(--border); border-radius: 4px; background: var(--card); overflow: hidden; }
+.dont .demo { height: 108px; display: grid; place-items: center; padding: 1rem; border-bottom: 1px solid var(--border); }
+.dont .demo.on-paper { background: var(--paper); }
+.dont .demo.on-bronze { background: var(--bronze); }
+.dont .demo-bad-text { font-size: 1.35rem; font-weight: 700; }
+.dont .demo-bad-text.bronze-on-paper { color: var(--bronze); font-family: var(--serif); }
+.dont .demo-bad-text.white-on-bronze { color: #FFFFFF; }
+.dont .demo .fixhint { text-align: center; }
+.dont .demo .fixhint .good { font-size: 1.35rem; font-weight: 700; }
+.dont .demo .fixhint .good.bronze-fix { color: var(--bronze-text); font-family: var(--serif); }
+.dont .demo .fixhint .good.black-fix { color: var(--ledger); }
+.dont .body { padding: 1.1rem 1.25rem 1.25rem; }
+.dont .no {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700;
+  color: #9A2A20; margin-bottom: 0.5rem;
+}
+.dont .no::before { content: "\00D7"; font-size: 1.1rem; line-height: 1; }
+.dont p { font-size: var(--step--1); color: var(--muted); line-height: 1.55; }
+.dont p b { color: var(--ink); }
+
+/* ============================================================
+   COLOPHON  (ledger-black)
+   ============================================================ */
+.colophon { background: var(--ledger); color: var(--paper-on-dark); padding: clamp(3rem, 7vw, 5rem) 0; }
+.colophon .rule-bronze { max-width: 120px; margin-bottom: 2rem; }
+.colophon .co-grid { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.colophon h4 { font-family: var(--sans); font-size: var(--step--1); letter-spacing: 0.16em; text-transform: uppercase; color: var(--bronze); margin: 0 0 0.6rem; font-weight: 600; }
+.colophon p { color: var(--muted-on-dark); font-size: var(--step--1); line-height: 1.65; max-width: 46ch; }
+.colophon .restate { font-family: var(--serif); font-style: italic; font-size: var(--step-1); color: var(--paper-on-dark); max-width: 40ch; line-height: 1.4; }
+.colophon .specimen-id { margin-top: 2.5rem; font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted-on-dark); }
+
+@media (max-width: 640px) {
+  .hero-body { grid-template-columns: 1fr; }
+  .color-row { grid-template-columns: 42px 1fr; grid-template-areas: "sw name" "sw hex" "sw contrast"; row-gap: 0.3rem; }
+  .swatch { width: 42px; height: 42px; grid-area: sw; align-self: start; }
+  .color-row .c-name { grid-area: name; }
+  .color-row .c-hex { grid-area: hex; }
+  .color-row .c-contrast { grid-area: contrast; }
+  .hero-mini .nav .links { display: none; }
+}
+</style>
+
+<main>
+  <!-- ================= MASTHEAD ================= -->
+  <header class="masthead">
+    <span class="watermark" aria-hidden="true">Aiki</span>
+    <div class="inner">
+      <div class="docbar">
+        <span class="eyebrow load" style="--d:0s">Brand Specimen</span>
+        <span class="eyebrow load tnum" style="--d:0.05s">Identity System &middot; No.01 &middot; 2026</span>
+      </div>
+
+      <div class="mast-wordmark">
+        <span class="wm-text load" style="--d:0.1s">Aikee<span class="ai">AI</span></span>
+        <span class="wm-rule" aria-hidden="true"></span>
+      </div>
+
+      <p class="positioning load" style="--d:0.2s">
+        For Nigerian job seekers who are qualified but overlooked, Aikee&nbsp;AI turns
+        the <span class="accent">work of finding work</span> into a craft anyone can master.
+      </p>
+
+      <dl class="gloss load" style="--d:0.3s">
+        <dt>aiki &mdash; Hausa, noun.</dt>
+        <dd>Work: the labour that feeds a home, builds a name, and earns respect. The product is named for it.</dd>
+      </dl>
+
+      <ul class="attributes load" style="--d:0.4s">
+        <li>Dignified</li>
+        <li>Sharp</li>
+        <li>Grounded</li>
+      </ul>
+    </div>
+  </header>
+
+  <!-- ================= PLATE I — IDENTITY ================= -->
+  <section class="plate">
+    <div class="inner">
+      <div class="plate-head">
+        <span class="plate-no">I</span>
+        <h2>Identity</h2>
+        <p class="plate-note">A wordmark-first system. The serif carries the craft; the bronze
+          baseline is the line you sign your name above &mdash; a name being built, made literal.</p>
+      </div>
+
+      <div class="id-grid">
+        <div class="tile lift">
+          <span class="tile-label">Primary &middot; on paper</span>
+          <div class="tile-body">
+            <span class="wordmark"><span class="wm-text">Aikee<span class="ai">AI</span></span><span class="wm-baseline"></span></span>
+          </div>
+        </div>
+
+        <div class="tile on-ledger lift">
+          <span class="tile-label">Inverted &middot; on ledger</span>
+          <div class="tile-body">
+            <span class="wordmark inv"><span class="wm-text">Aikee<span class="ai">AI</span></span><span class="wm-baseline"></span></span>
+          </div>
+        </div>
+
+        <div class="tile lift">
+          <span class="tile-label">One colour</span>
+          <div class="tile-body" style="gap:1.5rem; flex-direction:column;">
+            <span class="wordmark one-black"><span class="wm-text">Aikee<span class="ai">AI</span></span><span class="wm-baseline"></span></span>
+            <span class="wordmark one-bronze"><span class="wm-text">Aikee<span class="ai">AI</span></span><span class="wm-baseline"></span></span>
+          </div>
+        </div>
+
+        <div class="tile lift">
+          <span class="tile-label">Monogram</span>
+          <div class="tile-body"><span class="monogram">A</span></div>
+        </div>
+
+        <div class="tile lift">
+          <span class="tile-label">Favicon &middot; true size</span>
+          <div class="tile-body">
+            <div class="favi-row">
+              <div class="favi"><span class="chip px24">A</span><span class="cap">24px</span></div>
+              <div class="favi"><span class="chip px16">A</span><span class="cap">16px</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tile lift">
+          <span class="tile-label">Signature motif</span>
+          <div class="tile-body" style="flex-direction:column; align-items:flex-start; justify-content:center; width:100%;">
+            <div class="signature">
+              <div class="sig-mark">Ada&nbsp;Obi</div>
+              <div class="sig-line"></div>
+              <div class="sig-cap">Sign above the line</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="clearspace-note" style="margin-top:1.5rem;">
+        <b style="color:var(--ink);">Clear space</b> equals the cap-height of the wordmark on all sides.
+        <b style="color:var(--ink);">Minimum width</b> 88px on screen so the baseline rule stays crisp.
+        Never stretch, recolour outside the palette, or set the wordmark without its baseline.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= PLATE II — COLOUR ================= -->
+  <section class="plate">
+    <div class="inner">
+      <div class="plate-head">
+        <span class="plate-no">II</span>
+        <h2>Colour</h2>
+        <p class="plate-note">Ledger black and antique bronze on warm paper. Six colours with a job each;
+          bronze splits into a fill and a darker text-safe sibling so it never fails contrast.</p>
+      </div>
+
+      <div class="color-group">
+        <h3>On light</h3>
+        <div class="color-table">
+          <div class="color-row">
+            <span class="swatch" style="background:#0A0A0A"></span>
+            <span><span class="c-name">Ledger</span><span class="c-job">Primary ink; body text; dark grounds</span></span>
+            <span class="c-hex tnum">#0A0A0A</span>
+            <span class="c-contrast"><b>17.9:1</b> on paper <span class="pass">&#10003;</span></span>
+          </div>
+          <div class="color-row">
+            <span class="swatch" style="background:#B8860B"></span>
+            <span><span class="c-name">Bronze</span><span class="c-job">Accent FILL only &mdash; buttons, rules, monogram, numerals</span></span>
+            <span class="c-hex tnum">#B8860B</span>
+            <span class="c-contrast"><span class="warn-flag">2.94:1</span> as text &mdash; fill only</span>
+          </div>
+          <div class="color-row">
+            <span class="swatch" style="background:#8A6408"></span>
+            <span><span class="c-name">Bronze Text</span><span class="c-job">Bronze as text &amp; links on light surfaces</span></span>
+            <span class="c-hex tnum">#8A6408</span>
+            <span class="c-contrast"><b>4.86:1</b> on paper <span class="pass">&#10003;</span></span>
+          </div>
+          <div class="color-row">
+            <span class="swatch" style="background:#F7F3EC"></span>
+            <span><span class="c-name">Paper</span><span class="c-job">Warm page canvas</span></span>
+            <span class="c-hex tnum">#F7F3EC</span>
+            <span class="c-contrast">Background</span>
+          </div>
+          <div class="color-row">
+            <span class="swatch" style="background:#FFFFFF"></span>
+            <span><span class="c-name">Card</span><span class="c-job">Raised surfaces, sheets, tiles</span></span>
+            <span class="c-hex tnum">#FFFFFF</span>
+            <span class="c-contrast">Surface</span>
+          </div>
+          <div class="color-row">
+            <span class="swatch" style="background:#57534A"></span>
+            <span><span class="c-name">Muted</span><span class="c-job">Secondary &amp; supporting text (warm grey)</span></span>
+            <span class="c-hex tnum">#57534A</span>
+            <span class="c-contrast"><b>6.9:1</b> on paper <span class="pass">&#10003;</span></span>
+          </div>
+          <div class="color-row">
+            <span class="swatch" style="background:#E7E0D2"></span>
+            <span><span class="c-name">Border</span><span class="c-job">Hairline rules &amp; dividers</span></span>
+            <span class="c-hex tnum">#E7E0D2</span>
+            <span class="c-contrast">Decorative</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="color-group on-ledger">
+        <h3>On ledger</h3>
+        <div class="color-table">
+          <div class="color-row">
+            <span class="swatch" style="background:#F7F3EC"></span>
+            <span><span class="c-name">Paper on dark</span><span class="c-job">Body &amp; headings on ledger sections</span></span>
+            <span class="c-hex tnum">#F7F3EC</span>
+            <span class="c-contrast"><b>17.9:1</b> <span class="pass">&#10003;</span></span>
+          </div>
+          <div class="color-row">
+            <span class="swatch" style="background:#B8B0A0"></span>
+            <span><span class="c-name">Muted on dark</span><span class="c-job">Secondary text on ledger</span></span>
+            <span class="c-hex tnum">#B8B0A0</span>
+            <span class="c-contrast"><b>9.2:1</b> <span class="pass">&#10003;</span></span>
+          </div>
+          <div class="color-row">
+            <span class="swatch" style="background:#B8860B"></span>
+            <span><span class="c-name">Bronze</span><span class="c-job">Accent text &amp; fill on ledger (full strength works here)</span></span>
+            <span class="c-hex tnum">#B8860B</span>
+            <span class="c-contrast"><b>6.08:1</b> <span class="pass">&#10003;</span></span>
+          </div>
+        </div>
+      </div>
+
+      <p class="callout">
+        <b>Buttons:</b> bronze fill with <b>ledger-black</b> label (6.08:1). Never white text on bronze
+        (3.25:1 &mdash; fails). On paper, bronze is only ever a fill or a rule; when bronze must be
+        <i>read</i> on light, switch to Bronze&nbsp;Text&nbsp;#8A6408.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= PLATE III — TYPOGRAPHY ================= -->
+  <section class="plate">
+    <div class="inner">
+      <div class="plate-head">
+        <span class="plate-no">III</span>
+        <h2>Typography</h2>
+        <p class="plate-note">Two families. Fraunces, an optical serif, gives the editorial, hand-set
+          voice; Inter keeps the interface plain and legible. A major-third scale (1.25) throughout.</p>
+      </div>
+
+      <div class="type-grid">
+        <div class="spec-card">
+          <span class="role">Display &amp; headings</span>
+          <div class="fam">Fraunces</div>
+          <div class="glyphs">AaBbCcGg &middot; 0123456789</div>
+          <p class="weights">Weights 300 / 400 / 400 italic / 600.<br>Fallback: Georgia, &lsquo;Times New Roman&rsquo;, serif.</p>
+        </div>
+        <div class="spec-card sans">
+          <span class="role">Body &amp; interface</span>
+          <div class="fam">Inter</div>
+          <div class="glyphs">AaBbCcGg &middot; 0123456789</div>
+          <p class="weights">Weights 400 / 500 / 600 / 700.<br>Fallback: -apple-system, system-ui, sans-serif.</p>
+        </div>
+      </div>
+
+      <div class="scale-ramp" aria-hidden="true">
+        <div class="row"><span class="sz tnum">3.05rem / 600</span><span>Turn work into craft</span></div>
+        <div class="row"><span class="sz tnum">2.44rem / 600</span><span>Turn work into craft</span></div>
+        <div class="row"><span class="sz tnum">1.95rem / 600</span><span>Turn work into craft</span></div>
+        <div class="row"><span class="sz tnum">1.56rem / 500</span><span>Turn work into craft</span></div>
+        <div class="row"><span class="sz tnum">1.25rem / 400</span><span>Turn work into craft</span></div>
+      </div>
+
+      <p class="body-specimen">
+        Aikee&nbsp;AI builds ATS-ready r&eacute;sum&eacute;s, tailors them to any job you paste, and
+        drafts a matching cover letter &mdash; so qualified people stop getting overlooked. Body text is
+        set in Inter at a comfortable measure of roughly sixty-five characters, the length the eye reads
+        without tiring.
+      </p>
+      <p class="uppercase-label">The work of finding work, made a craft</p>
+
+      <p class="clearspace-note" style="margin-top:1.75rem;">
+        <b style="color:var(--ink);">Licence:</b> Fraunces and Inter are both SIL Open Font License 1.1 &mdash;
+        free to embed in product, print, and web. No licence fee, no attribution required in-product.
+      </p>
+    </div>
+  </section>
+
+  <!-- ================= PLATE IV — IN USE ================= -->
+  <section class="plate">
+    <div class="inner">
+      <div class="plate-head">
+        <span class="plate-no">IV</span>
+        <h2>In use</h2>
+        <p class="plate-note">The system applied: a website hero, a business card, and a social avatar.
+          One accent, spent on the moments that matter &mdash; the call to action and the signature line.</p>
+      </div>
+
+      <div class="use-grid">
+        <!-- website hero -->
+        <div class="frame lift">
+          <div class="browserbar">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            <span class="addr">aikee.ai</span>
+          </div>
+          <div class="hero-mini">
+            <div class="nav">
+              <span class="wordmark" style="gap:0.2rem;"><span class="wm-text" style="font-size:1.25rem;">Aikee<span class="ai">AI</span></span><span class="wm-baseline"></span></span>
+              <span class="links"><span>Features</span><span>Templates</span><span>Reviews</span><span class="btn-mini">Log&nbsp;in</span></span>
+            </div>
+            <div class="hero-body">
+              <div>
+                <h1>Turn the work of finding work into a <span class="accent">craft</span>.</h1>
+                <p class="sub">ATS-ready r&eacute;sum&eacute;s, tailored to the job you paste, with a
+                  cover letter to match.</p>
+                <div class="cta-row">
+                  <span class="btn btn-primary">Build my r&eacute;sum&eacute;</span>
+                  <span class="btn btn-ghost">See how it works</span>
+                </div>
+              </div>
+              <div class="sheet" aria-hidden="true">
+                <div class="sheet-name">Ada Obi</div>
+                <div class="sheet-sig"></div>
+                <div class="sheet-line mid"></div>
+                <div class="sheet-line"></div>
+                <div class="sheet-line short"></div>
+                <div class="sheet-line mid"></div>
+                <span class="sheet-tab">ATS-ready</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- business card -->
+        <div class="cards-two">
+          <div class="bcard front lift">
+            <span class="mono-sm">A</span>
+            <span class="wordmark inv" style="align-items:center;"><span class="wm-text" style="font-size:1.4rem;">Aikee<span class="ai">AI</span></span><span class="wm-baseline" style="width:70%;"></span></span>
+          </div>
+          <div class="bcard back lift">
+            <div>
+              <div class="b-name">Ada Obi</div>
+              <div class="b-sig"></div>
+              <div class="b-role">Product Designer</div>
+            </div>
+            <div class="b-contact">
+              <b>ada@aikee.ai</b><br>
+              aikee.ai &middot; Lagos, Nigeria
+            </div>
+          </div>
+        </div>
+
+        <!-- avatars -->
+        <div class="frame lift" style="padding:clamp(1.5rem,4vw,2.5rem); display:flex;">
+          <div class="avatars">
+            <div style="display:flex; flex-direction:column; gap:0.6rem; align-items:center;">
+              <span class="avatar circle">A</span><span class="avatar-cap">Profile</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:0.6rem; align-items:center;">
+              <span class="avatar square">A</span><span class="avatar-cap">App icon</span>
+            </div>
+            <p class="clearspace-note" style="max-width:26ch; margin-left:0.5rem;">
+              The monogram holds at avatar scale &mdash; bronze on ledger, no wordmark needed.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PLATE V — DON'TS ================= -->
+  <section class="plate">
+    <div class="inner">
+      <div class="plate-head">
+        <span class="plate-no">V</span>
+        <h2>Three don&rsquo;ts</h2>
+        <p class="plate-note">The rules that keep the identity dignified and legible. Restraint is the point.</p>
+      </div>
+
+      <div class="donts">
+        <div class="dont">
+          <div class="demo on-paper">
+            <div class="fixhint">
+              <span class="demo-bad-text bronze-on-paper">Overlooked</span>
+              &nbsp;&rarr;&nbsp;
+              <span class="good bronze-fix">Overlooked</span>
+            </div>
+          </div>
+          <div class="body">
+            <span class="no">Don&rsquo;t</span>
+            <p>Set <b>bronze #B8860B as small text on light</b> &mdash; it fails at 2.94:1. Use
+              Bronze&nbsp;Text&nbsp;#8A6408 for anything read on paper.</p>
+          </div>
+        </div>
+
+        <div class="dont">
+          <div class="demo on-bronze">
+            <div class="fixhint">
+              <span class="demo-bad-text white-on-bronze">Build</span>
+              &nbsp;&rarr;&nbsp;
+              <span class="good black-fix">Build</span>
+            </div>
+          </div>
+          <div class="body">
+            <span class="no">Don&rsquo;t</span>
+            <p>Put <b>white text on a bronze button</b> (3.25:1). Bronze buttons take a
+              <b>ledger-black</b> label &mdash; 6.08:1, and it looks like struck metal.</p>
+          </div>
+        </div>
+
+        <div class="dont">
+          <div class="demo on-paper">
+            <div class="fixhint" style="font-size:2rem; letter-spacing:0.1em;">
+              <span style="opacity:0.3;">&#128161;&#9881;&#65039;&#129504;</span>
+            </div>
+          </div>
+          <div class="body">
+            <span class="no">Don&rsquo;t</span>
+            <p>Reach for <b>AI/tech clich&eacute;s</b> &mdash; circuit boards, neural nodes, lightbulbs &mdash;
+              or decorative &ldquo;pattern&rdquo; shorthand. The serif and the signature line carry the meaning.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= COLOPHON ================= -->
+  <footer class="colophon">
+    <div class="inner">
+      <hr class="rule-bronze">
+      <div class="co-grid">
+        <div>
+          <h4>Positioning</h4>
+          <p class="restate">Aikee&nbsp;AI turns the work of finding work into a craft anyone can master.</p>
+        </div>
+        <div>
+          <h4>Typefaces</h4>
+          <p>Fraunces &amp; Inter &mdash; both SIL Open Font License 1.1. Free to embed in product, web, and print.</p>
+        </div>
+        <div>
+          <h4>Palette</h4>
+          <p>Ledger #0A0A0A &middot; Bronze #B8860B / #8A6408 &middot; Paper #F7F3EC &middot; Card #FFFFFF &middot; Muted #57534A &middot; Border #E7E0D2.</p>
+        </div>
+      </div>
+      <p class="specimen-id tnum">Aikee AI &middot; Brand Specimen &middot; Identity System No.01 &middot; 2026</p>
+    </div>
+  </footer>
+</main>

@@ -1,4 +1,4 @@
-# CVForge AI — Full System Architecture
+# Aikee AI — Full System Architecture
 
 **Technology Stack**: React 18 + Vite (Frontend) | Node.js HTTP Server (Backend) | Supabase (Auth & Database) | Gemini/Groq/Stability APIs
 

@@ -195,7 +195,7 @@ export function MinimalistCV2({ data = DEFAULT_DATA }) {
           { icon: "✉", text: email },
           { icon: "📍", text: address },
         ].filter(({ text }) => text).map(({ icon, text }) => (
-          <div key={text} style={{
+          <div key={text} className="pdf-avoid-break" style={{
             display: "flex",
             alignItems: "flex-start",
             gap: 9,
@@ -211,7 +211,7 @@ export function MinimalistCV2({ data = DEFAULT_DATA }) {
       <div style={{ marginBottom: 28 }}>
         <SectionHeading>Education</SectionHeading>
         {education.map((edu, i) => (
-          <div key={i} style={{ marginBottom: 14 }}>
+          <div key={i} className="pdf-avoid-break" style={{ marginBottom: 14 }}>
             <div style={{ fontWeight: 600, fontSize: 12.5, color: DARK, marginBottom: 1 }}>
               {edu.degree}
             </div>
@@ -260,7 +260,7 @@ export function MinimalistCV2({ data = DEFAULT_DATA }) {
           marginTop: 6,
         }}>
           {references.map((ref, i) => (
-            <div key={i}>
+            <div key={i} className="pdf-avoid-break">
               <div style={{
                 fontWeight: 600,
                 fontSize: 13.5,
@@ -299,6 +299,7 @@ export function MinimalistCV2({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Jost:wght@300;400;500;600&display=swap');
         .min2-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="min2-cv" style={{

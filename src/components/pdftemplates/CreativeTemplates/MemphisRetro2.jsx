@@ -49,7 +49,7 @@ function TrafficDots({ size = 10 }) {
   return (
     <div style={{ display: "flex", gap: 5 }}>
       {[ORANGE, YELLOW, TEAL].map((c, i) => (
-        <div key={i} style={{
+        <div key={i} className="pdf-avoid-break" style={{
           width: size, height: size, borderRadius: "50%",
           background: c, border: `1.5px solid rgba(0,0,0,0.15)`,
         }} />
@@ -204,7 +204,7 @@ function DotGrid({ rows = 3, cols = 3, color = ORANGE, style = {} }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 6px)`, gap: 4, ...style }}>
       {Array.from({ length: rows * cols }).map((_, i) => (
-        <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />
+        <div key={i} className="pdf-avoid-break" style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />
       ))}
     </div>
   );
@@ -263,7 +263,7 @@ export function MemphisRetro2({ data = DEFAULT_DATA }) {
         <div style={{ padding: "10px 16px 14px" }}>
           <SectionBadge color={ORANGE}>WORK EXPERIENCE</SectionBadge>
           {experience.map((exp, i) => (
-            <div key={i} style={{ marginBottom: i < experience.length - 1 ? 16 : 0 }}>
+            <div key={i} className="pdf-avoid-break" style={{ marginBottom: i < experience.length - 1 ? 16 : 0 }}>
               <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
                 <span style={{
                   background: YELLOW,
@@ -332,7 +332,7 @@ export function MemphisRetro2({ data = DEFAULT_DATA }) {
             <SectionBadge color={ORANGE}>EDUCATION</SectionBadge>
           </div>
           {education.map((edu, i) => (
-            <div key={i} style={{ marginBottom: 10 }}>
+            <div key={i} className="pdf-avoid-break" style={{ marginBottom: 10 }}>
               <span style={{
                 display: "inline-block",
                 background: ORANGE,
@@ -406,6 +406,7 @@ export function MemphisRetro2({ data = DEFAULT_DATA }) {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Nunito:wght@400;600;700;800;900&display=swap');
         .mr2-cv * { box-sizing: border-box; }
+        .pdf-avoid-break { page-break-inside: avoid; break-inside: avoid; }
       `}</style>
 
       <div className="mr2-cv" style={{

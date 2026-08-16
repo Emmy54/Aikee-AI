@@ -107,6 +107,109 @@ export const css = `
     background: ${colors.success};
   }
 
+  /* ── Header ──────────────────────────────────────────────────────────────── */
+
+  .hdr-left,
+  .hdr-right {
+    display: flex;
+    align-items: center;
+  }
+
+  .hdr-left { gap: 1rem; }
+  .hdr-right { gap: 0.75rem; flex-wrap: wrap; justify-content: flex-end; }
+
+  a.logo {
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  a.logo:hover { opacity: 0.7; }
+
+  /* One rule replaces the button style that was inlined four times over,
+     and :hover replaces the eight JS mouse handlers that went with it. */
+  .hdr-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background: ${colors.surfaceContainerLow};
+    border: none;
+    color: ${colors.primary};
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.4;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+
+  .hdr-btn:hover { background: ${colors.surfaceContainerHigh}; }
+
+  .hdr-btn:focus-visible {
+    outline: 2px solid ${colors.primary};
+    outline-offset: 2px;
+  }
+
+  .hdr-pill {
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .hdr-user-label {
+    max-width: 11rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hdr-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.5rem;
+    min-width: 12rem;
+    background: ${colors.surfaceContainerLowest};
+    border-radius: 0.5rem;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 23, 75, 0.12);
+    overflow: hidden;
+    z-index: 1000;
+  }
+
+  .hdr-menu-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid ${colors.surfaceContainerHigh};
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    color: ${colors.onSurfaceVariant};
+    word-break: break-all;
+  }
+
+  .hdr-menu-item {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: none;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: ${colors.onSurface};
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .hdr-menu-item:hover { background: ${colors.surfaceContainerLow}; }
+  .hdr-menu-item.danger { color: #dc2626; }
+
   .main {
     flex: 1;
     display: flex;
@@ -616,6 +719,146 @@ export const css = `
     gap: 1.5rem;
   }
 
+  /* ── Two-pane builder: questions left, live preview right ────────────────
+     Activates at >=1024px only. That is deliberately above the 900px point
+     where .header reflows to a taller two-row layout, so the sticky preview
+     pane never has to guess the header's height. */
+
+  .builder-split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 82rem;
+    align-items: start;
+  }
+
+  /* Undo the centered-card sizing inside the left pane only. .card keeps its
+     wide centered form on the final preview step, which sits outside .builder-split. */
+  .builder-split .card {
+    max-width: none;
+    padding: 2rem;
+  }
+
+  .builder-pane-form {
+    min-width: 0;
+  }
+
+  .builder-pane-preview {
+    min-width: 0;
+    position: sticky;
+    top: 5.5rem;
+    max-height: calc(100vh - 7rem);
+    overflow: auto;
+    background: ${colors.surfaceContainerLow};
+    border-radius: 1rem;
+    padding: 1rem;
+  }
+
+  .live-preview-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .live-preview-label {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+    color: ${colors.primary};
+    white-space: nowrap;
+  }
+
+  .live-preview-select {
+    flex: 1;
+    min-width: 0;
+    padding: 0.5rem 0.625rem;
+    font-size: 0.8125rem;
+    border-radius: 0.5rem;
+    background: ${colors.surfaceContainerLowest};
+    box-shadow: inset 0 0 0 1px ${colors.outlineVariant};
+    cursor: pointer;
+  }
+
+  .live-preview-stage {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: ${colors.surfaceContainerLowest};
+    border-radius: 0.75rem;
+    padding: 0.5rem;
+    overflow: hidden;
+  }
+
+  .live-preview-scale {
+    transform-origin: top center;
+  }
+
+  /* Paired fields cannot survive the narrower left column */
+  @media (min-width: 1024px) and (max-width: 1300px) {
+    .builder-split .two-col {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* Below the split breakpoint: one pane at a time via the Form/Preview toggle */
+  .builder-mobile-switch {
+    display: none;
+  }
+
+  @media (max-width: 1023px) {
+    .builder-split {
+      grid-template-columns: 1fr;
+      max-width: 42rem;
+    }
+
+    .builder-pane-preview {
+      position: static;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .builder-split[data-mobile-view="form"] .builder-pane-preview {
+      display: none;
+    }
+
+    .builder-split[data-mobile-view="preview"] .builder-pane-form {
+      display: none;
+    }
+
+    .builder-mobile-switch {
+      display: flex;
+      gap: 0.5rem;
+      background: ${colors.surfaceContainerLow};
+      padding: 0.3125rem;
+      border-radius: 0.75rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .builder-mobile-switch button {
+      flex: 1;
+      padding: 0.625rem 0.75rem;
+      border: none;
+      border-radius: 0.5rem;
+      background: transparent;
+      color: ${colors.onSurfaceVariant};
+      font-family: 'Inter', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .builder-mobile-switch button.active {
+      background: ${colors.surfaceContainerLowest};
+      color: ${colors.primary};
+      font-weight: 600;
+      box-shadow: 0 0.0625rem 0.1875rem rgba(0, 23, 75, 0.1);
+    }
+  }
+
   @media (max-width: 900px) {
     .header {
       padding: 1rem 1.25rem;
@@ -627,6 +870,13 @@ export const css = `
     .step-bar {
       flex-wrap: wrap;
       gap: 0.25rem;
+    }
+
+    /* Stacked header: let the action row use the full width and align left
+       with the logo instead of hugging the right edge. */
+    .hdr-right {
+      width: 100%;
+      justify-content: flex-start;
     }
 
     .main {
