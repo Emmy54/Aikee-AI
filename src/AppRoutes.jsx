@@ -2,13 +2,61 @@ import React, { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { userProfileOperations } from "./utils/databaseHelpers";
+import { colors, css } from "./constants/theme";
 import LandingPage from "./components/steps/LandingPage"
 import Dashboard from "./components/steps/Dashboard";
 import SignInOptimized from "./components/pages/SignInOptimized";
 import BuilderApp from "./BuilderApp";
 
+// Shown to a signed-in user whose email is NOT on the beta allowlist. The app
+// itself stays fully locked (the server rejects every paid call), so this is
+// the friendly explanation rather than the enforcement.
+function WaitlistScreen({ email, onSignOut }) {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: colors.surface,
+        padding: "1.5rem",
+      }}
+    >
+      <style>{css}</style>
+      <div
+        className="card"
+        style={{ maxWidth: "34rem", textAlign: "center", padding: "3rem 2.5rem" }}
+      >
+        <div className="step-tag" style={{ justifyContent: "center" }}>
+          Aikee AI · Private Beta
+        </div>
+        <h1 style={{ marginBottom: "0.75rem" }}>You're on the waitlist</h1>
+        <p className="subtitle" style={{ marginBottom: "1.5rem" }}>
+          Thanks for your interest in Aikee AI! We're rolling out access to a
+          small group of testers at a time. Your account
+          {email ? (
+            <>
+              {" "}(<strong style={{ color: colors.onSurface }}>{email}</strong>)
+            </>
+          ) : null}{" "}
+          isn't approved for the beta just yet — we'll email you the moment a
+          spot opens up.
+        </p>
+        <button
+          className="btn btn-primary"
+          style={{ maxWidth: "16rem", margin: "0 auto" }}
+          onClick={onSignOut}
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Protected Route wrapper
-function ProtectedRoute({ children, user, isLoading }) {
+function ProtectedRoute({ children, user, isLoading, onSignOut }) {
   if (isLoading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: `linear-gradient(135deg, #667eea 0%, #764ba2 100%)`, fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
@@ -20,6 +68,11 @@ function ProtectedRoute({ children, user, isLoading }) {
 
   if (!user) {
     return <Navigate to="/signin" replace />;
+  }
+
+  // Beta gate (task #4): signed in but not allowlisted → waitlist screen.
+  if (user.allowlisted === false) {
+    return <WaitlistScreen email={user.email} onSignOut={onSignOut} />;
   }
 
   return children;
@@ -39,13 +92,31 @@ export default function AppRoutes() {
       const profileResult = await userProfileOperations.getUserProfile(authUser);
       const userWithProfile = {
         ...authUser,
-        firstName: profileResult.success && profileResult.data 
-          ? profileResult.data.first_name 
+        firstName: profileResult.success && profileResult.data
+          ? profileResult.data.first_name
           : authUser.email?.split('@')[0] || 'User',
-        lastName: profileResult.success && profileResult.data 
-          ? profileResult.data.last_name 
+        lastName: profileResult.success && profileResult.data
+          ? profileResult.data.last_name
           : authUser.email?.split('@')[0] || 'User',
       };
+
+      // Beta gate: is this tester's email on the allowlist? (task #4)
+      // This drives the waitlist screen only — the SERVER independently enforces
+      // the allowlist on every paid API call, so we FAIL OPEN here: a transient
+      // RPC error must not lock out a legitimate tester. `rpc()` is not an
+      // auth.* call, so it's safe to run from here / the auth callback.
+      try {
+        const { data, error } = await supabase.rpc('get_my_generation_status');
+        const status = Array.isArray(data) ? data[0] : data;
+        userWithProfile.allowlisted = error ? true : status?.allowlisted !== false;
+        userWithProfile.generationsUsed = status?.used ?? 0;
+        userWithProfile.generationsCap = status?.cap ?? 2;
+        userWithProfile.generationsRemaining = status?.remaining ?? null;
+      } catch (statusErr) {
+        console.warn('Allowlist status check failed (failing open):', statusErr?.message);
+        userWithProfile.allowlisted = true;
+      }
+
       return userWithProfile;
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -53,6 +124,7 @@ export default function AppRoutes() {
         ...authUser,
         firstName: authUser.email?.split('@')[0] || 'User',
         lastName: authUser.email?.split('@')[0] || 'User',
+        allowlisted: true,
       };
     }
   };
@@ -103,6 +175,11 @@ export default function AppRoutes() {
     };
   }, []);
 
+  const handleSignOut = () => {
+    supabase.auth.signOut();
+    setUser(null);
+  };
+
   return (
     <Routes>
       {/* Public Routes */}
@@ -127,13 +204,10 @@ export default function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute user={user} isLoading={authLoading}>
+          <ProtectedRoute user={user} isLoading={authLoading} onSignOut={handleSignOut}>
             <Dashboard
               user={user}
-              onSignOut={() => {
-                supabase.auth.signOut();
-                setUser(null);
-              }}
+              onSignOut={handleSignOut}
             />
           </ProtectedRoute>
         }
@@ -141,7 +215,7 @@ export default function AppRoutes() {
       <Route
         path="/builder/*"
         element={
-          <ProtectedRoute user={user} isLoading={authLoading}>
+          <ProtectedRoute user={user} isLoading={authLoading} onSignOut={handleSignOut}>
             <BuilderApp initialUser={user} />
           </ProtectedRoute>
         }

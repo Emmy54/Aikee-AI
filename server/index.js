@@ -2,6 +2,7 @@ import http from "http";
 import { existsSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { createClient } from "@supabase/supabase-js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, "..");
@@ -47,6 +48,31 @@ const GROQ_API_KEY =
 const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
 const STABILITY_API_KEY = process.env.STABILITY_API_KEY || process.env.VITE_STABILITY_API_KEY;
 
+// --- Supabase auth / beta-gating config (tasks #2, #4, #6) ---
+const SUPABASE_URL =
+  process.env.VITE_SUPABASE_PUBLIC_URL || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY =
+  process.env.VITE_SUPABASE_PUBLIC_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+// Full-CV generations allowed per beta tester (raise/lower without a migration).
+const FULL_CV_LIMIT = Number(process.env.BETA_FULL_CV_LIMIT || 2);
+// Fail-closed by default: every paid endpoint requires a valid Supabase session
+// whose email is on the beta allowlist. Set BETA_REQUIRE_AUTH=false ONLY for
+// local development without Supabase configured — never in production.
+const REQUIRE_AUTH = String(process.env.BETA_REQUIRE_AUTH ?? "true") !== "false";
+
+if (REQUIRE_AUTH && (!SUPABASE_URL || !SUPABASE_ANON_KEY)) {
+  console.warn(
+    "[auth] BETA_REQUIRE_AUTH is on but SUPABASE_URL / ANON_KEY are missing — " +
+      "paid endpoints will reject every request until these are set."
+  );
+}
+
+// HTTPS enforcement (task #6). The TLS-terminating reverse proxy in front of
+// this server is the PRIMARY control (see docs/BETA_LAUNCH_CHECKLIST.md); this
+// flag adds a belt-and-braces redirect + HSTS at the app layer. Leave OFF for
+// local HTTP dev (turning HSTS on over localhost would pin HTTPS and break it).
+const ENFORCE_HTTPS = String(process.env.ENFORCE_HTTPS || "false") === "true";
+
 const sendJson = (res, status, payload) => {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(payload));
@@ -91,10 +117,121 @@ const parseRetryAfterMs = (headerValue) => {
   return null;
 };
 
+// ============================================================================
+// Auth / beta-gating helpers (tasks #2, #4, #6)
+// ============================================================================
+
+// One shared client is enough to VERIFY tokens (getUser needs no user context).
+let _authClient = null;
+const getAuthClient = () => {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+  if (!_authClient) {
+    _authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+  }
+  return _authClient;
+};
+
+const getBearerToken = (req) => {
+  const header = req.headers["authorization"] || "";
+  if (!header.startsWith("Bearer ")) return null;
+  const token = header.slice(7).trim();
+  return token || null;
+};
+
+// Client-facing messages, keyed by error code.
+const AUTH_MESSAGES = {
+  auth_not_configured: "Sign-in isn't configured on the server yet.",
+  missing_token: "Please sign in to continue.",
+  invalid_token: "Your session has expired — please sign in again.",
+  not_allowlisted:
+    "This account isn't on the Aikee AI beta list yet. Join the waitlist and we'll be in touch.",
+  allowlist_check_failed: "Couldn't verify your beta access — please try again.",
+  usage_check_failed: "Couldn't check your generation limit — please try again.",
+  limit_reached:
+    "You've used all your beta CV generations. Thanks for helping us test Aikee AI!",
+};
+
+// Verifies the Supabase JWT and (optionally) that the caller's email is on the
+// beta allowlist. Returns { ok, status, error, user, userClient, bypassed }.
+const authorize = async (req, { requireAllowlist = true } = {}) => {
+  if (!REQUIRE_AUTH) {
+    return { ok: true, user: null, userClient: null, bypassed: true };
+  }
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return { ok: false, status: 503, error: "auth_not_configured" };
+  }
+
+  const token = getBearerToken(req);
+  if (!token) {
+    return { ok: false, status: 401, error: "missing_token" };
+  }
+
+  const { data, error } = await getAuthClient().auth.getUser(token);
+  if (error || !data?.user) {
+    return { ok: false, status: 401, error: "invalid_token" };
+  }
+
+  // Per-request client bound to the user's token so RPCs run with the correct
+  // auth.uid() under RLS / SECURITY DEFINER.
+  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  if (requireAllowlist) {
+    const { data: allowed, error: allowErr } = await userClient.rpc(
+      "is_email_allowlisted"
+    );
+    if (allowErr) {
+      console.error("[auth] allowlist check failed:", allowErr.message);
+      return { ok: false, status: 500, error: "allowlist_check_failed" };
+    }
+    if (!allowed) {
+      return { ok: false, status: 403, error: "not_allowlisted", user: data.user };
+    }
+  }
+
+  return { ok: true, user: data.user, userClient };
+};
+
+const sendAuthError = (res, auth) =>
+  sendJson(res, auth.status, {
+    error: auth.error,
+    message: AUTH_MESSAGES[auth.error] || "Request not allowed.",
+  });
+
+// Atomically consume one full-CV credit. Returns { allowed, used, cap, reason }.
+const consumeFullCv = async (userClient, limit) => {
+  const { data, error } = await userClient.rpc("try_consume_full_cv_generation", {
+    p_limit: limit,
+  });
+  if (error) {
+    console.error("[usage] consume failed:", error.message);
+    return { allowed: false, reason: "usage_check_failed", used: 0, cap: limit };
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return row || { allowed: false, reason: "usage_check_failed", used: 0, cap: limit };
+};
+
+// Give a credit back (best-effort) when a metered generation ultimately fails.
+const refundFullCv = async (userClient) => {
+  try {
+    await userClient.rpc("refund_full_cv_generation");
+  } catch (err) {
+    console.error("[usage] refund failed:", err?.message || err);
+  }
+};
+
 const handleGeminiGenerateContent = async (req, res) => {
   if (!GEMINI_API_KEY && !GEMINI_API_KEY_FALLBACK) {
     return sendJson(res, 400, { error: "GEMINI_API_KEY not configured" });
   }
+
+  const auth = await authorize(req, { requireAllowlist: true });
+  if (!auth.ok) return sendAuthError(res, auth);
 
   const body = await readBody(req);
   const contents =
@@ -109,6 +246,23 @@ const handleGeminiGenerateContent = async (req, res) => {
 
   if (!contents) {
     return sendJson(res, 400, { error: "Missing contents or prompt" });
+  }
+
+  // Only the full-CV generation counts against the beta cap. The cheaper
+  // per-section helpers (skills/summary/experience) share this endpoint but are
+  // NOT tagged, so they pass through without consuming a credit.
+  const metered = body.meter === "full_cv" && !auth.bypassed;
+  if (metered) {
+    const gate = await consumeFullCv(auth.userClient, FULL_CV_LIMIT);
+    if (!gate.allowed) {
+      const status = gate.reason === "limit_reached" ? 429 : 403;
+      return sendJson(res, status, {
+        error: gate.reason,
+        message: AUTH_MESSAGES[gate.reason] || "Generation not allowed.",
+        used: gate.used,
+        cap: gate.cap,
+      });
+    }
   }
 
   const primaryKey = GEMINI_API_KEY || GEMINI_API_KEY_FALLBACK;
@@ -126,33 +280,44 @@ const handleGeminiGenerateContent = async (req, res) => {
     return { response, data };
   };
 
-  const primaryResult = await makeRequest(primaryModel, primaryKey);
-  if (primaryResult.response.ok) {
-    return sendJson(res, 200, { ...primaryResult.data, fallbackUsed: false });
-  }
+  // If a credit was consumed but the generation ultimately fails, refund it so
+  // a transient upstream error never costs a tester one of their generations.
+  const fail = async (status, payload) => {
+    if (metered) await refundFullCv(auth.userClient);
+    return sendJson(res, status, payload);
+  };
 
-  const shouldFallback =
-    fallbackKey &&
-    isRateLimitError(primaryResult.response.status, primaryResult.data);
-
-  if (shouldFallback) {
-    console.warn("Gemini fallback triggered due to rate-limit/quota error.");
-    const fallbackResult = await makeRequest(fallbackModel, fallbackKey);
-    if (fallbackResult.response.ok) {
-      return sendJson(res, 200, { ...fallbackResult.data, fallbackUsed: true });
+  try {
+    const primaryResult = await makeRequest(primaryModel, primaryKey);
+    if (primaryResult.response.ok) {
+      return sendJson(res, 200, { ...primaryResult.data, fallbackUsed: false });
     }
-    return sendJson(res, fallbackResult.response.status, {
-      error: "Gemini API error",
-      details: fallbackResult.data,
-      fallbackAttempted: true,
-    });
-  }
 
-  return sendJson(res, primaryResult.response.status, {
-    error: "Gemini API error",
-    details: primaryResult.data,
-    fallbackAttempted: false,
-  });
+    const shouldFallback =
+      fallbackKey &&
+      isRateLimitError(primaryResult.response.status, primaryResult.data);
+
+    if (shouldFallback) {
+      console.warn("Gemini fallback triggered due to rate-limit/quota error.");
+      const fallbackResult = await makeRequest(fallbackModel, fallbackKey);
+      if (fallbackResult.response.ok) {
+        return sendJson(res, 200, { ...fallbackResult.data, fallbackUsed: true });
+      }
+      return fail(fallbackResult.response.status, {
+        error: "Gemini API error",
+        details: fallbackResult.data,
+        fallbackAttempted: true,
+      });
+    }
+
+    return fail(primaryResult.response.status, {
+      error: "Gemini API error",
+      details: primaryResult.data,
+      fallbackAttempted: false,
+    });
+  } catch (err) {
+    return fail(502, { error: "Gemini request failed", details: err?.message });
+  }
 };
 
 const handleGeminiStatus = async (_req, res) => {
@@ -205,6 +370,11 @@ const handleStabilityHeadshot = async (req, res) => {
   if (!STABILITY_API_KEY) {
     return sendJson(res, 400, { error: "STABILITY_API_KEY not configured" });
   }
+
+  // Paid endpoint: valid session + allowlisted email required (not metered —
+  // only full-CV generations count against the beta cap).
+  const auth = await authorize(req, { requireAllowlist: true });
+  if (!auth.ok) return sendAuthError(res, auth);
 
   const body = await readBody(req);
   const { base64ImageData, prompt, mimeType } = body || {};
@@ -273,6 +443,11 @@ const handleGroqGenerateContent = async (req, res) => {
   if (!GROQ_API_KEY) {
     return sendJson(res, 400, { error: "GROQ_API_KEY not configured" });
   }
+
+  // Paid endpoint: valid session + allowlisted email required (not metered —
+  // interview questions stay free per the beta plan).
+  const auth = await authorize(req, { requireAllowlist: true });
+  if (!auth.ok) return sendAuthError(res, auth);
 
   const body = await readBody(req);
   const messages = Array.isArray(body.messages) ? body.messages : null;
@@ -378,6 +553,32 @@ const handleGroqStatus = async (_req, res) => {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+
+  // --- HTTPS enforcement + security headers (task #6) ---
+  // Behind a proxy, the original scheme arrives in X-Forwarded-Proto. When
+  // ENFORCE_HTTPS is on we 301 any plaintext request to https and advertise
+  // HSTS so browsers refuse to downgrade on subsequent visits.
+  if (ENFORCE_HTTPS) {
+    const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
+      .split(",")[0]
+      .trim()
+      .toLowerCase();
+    const isHttps = forwardedProto === "https" || Boolean(req.socket?.encrypted);
+    if (!isHttps) {
+      const host = req.headers.host || "";
+      res.writeHead(301, { Location: `https://${host}${req.url}` });
+      return res.end();
+    }
+    // 2 years, include subdomains, and eligible for browser preload lists.
+    res.setHeader(
+      "Strict-Transport-Security",
+      "max-age=63072000; includeSubDomains; preload"
+    );
+  }
+  // Cheap, always-on hardening for an API that only ever returns JSON.
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("X-Frame-Options", "DENY");
 
   if (req.method === "POST" && url.pathname === "/api/gemini/generate-content") {
     return handleGeminiGenerateContent(req, res);

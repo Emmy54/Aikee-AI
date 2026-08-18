@@ -1,9 +1,10 @@
 import { withCache } from '../utils/databaseHelpers';
+import { authedPostJson, getJson } from './apiClient';
 
-const USE_SERVER = import.meta.env.VITE_USE_SERVER !== "true";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
-
-const apiFetch = (path, options) => fetch(`${API_BASE_URL}${path}`, options);
+// Groq (interview questions) is server-only: the request goes through
+// /api/groq/generate-content with the Supabase token attached, so the API key
+// stays on the server and the beta allowlist is enforced. Interview questions
+// are NOT metered — they stay free during the beta.
 
 const normalizeQuestion = (question) => (question || "").replace(/\s+/g, " ").trim();
 
@@ -45,10 +46,6 @@ const extractQuestions = (content) => {
 };
 
 export const generateRoleQuestionsWithGroq = async (role, experienceLevel, count = 5) => {
-  if (!USE_SERVER) {
-    throw new Error("Groq API is only supported via server mode in this app.");
-  }
-
   try {
     const result = await withCache(
       'skills', // Cache as skills since this is for skill discovery
@@ -96,24 +93,15 @@ Requirements:
 Return ONLY a JSON array of strings, like: ["Question 1", "Question 2"]
 Do not include code block formatting, just the raw JSON array.`;
 
-    const response = await apiFetch("/api/groq/generate-content", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: [
-          { role: "system", content: "You are a helpful CV assistant." },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 800,
-      }),
+    const data = await authedPostJson("/api/groq/generate-content", {
+      messages: [
+        { role: "system", content: "You are a helpful CV assistant." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.3,
+      max_tokens: 800,
     });
 
-    if (!response.ok) {
-      throw new Error(`Groq API error: ${response.status}`);
-    }
-
-    const data = await response.json();
     const content = data?.choices?.[0]?.message?.content || "";
     const parsed = extractQuestions(content);
     if (!Array.isArray(parsed) || parsed.length === 0) {
@@ -126,26 +114,12 @@ Do not include code block formatting, just the raw JSON array.`;
   }
 };
 
-export const isGroqConfigured = () => {
-  return USE_SERVER;
-};
+export const isGroqConfigured = () => true;
 
 export const getGroqStatus = async () => {
-  if (!USE_SERVER) {
-    return { configured: false, message: "Server mode disabled" };
+  const status = await getJson("/api/groq/status");
+  if (!status) {
+    return { configured: true, valid: false, message: "Status check failed" };
   }
-
-  try {
-    const response = await apiFetch("/api/groq/status", { method: "GET" });
-    if (!response.ok) {
-      return { configured: true, valid: false, message: "Status check failed" };
-    }
-    return await response.json();
-  } catch (error) {
-    return {
-      configured: true,
-      valid: false,
-      message: `Connection error: ${error.message}`,
-    };
-  }
+  return status;
 };

@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../lib/supabaseClient";
 import { cvOperations, getUserStats } from "../../utils/databaseHelpers";
+import BrandLogo from "../BrandLogo";
 
 // ─── Design Tokens (DESIGN.md exact values) ──────────────────────────────────
 const T = {
@@ -919,13 +920,7 @@ function DesktopSidebar({ user, onSignOut, navigate }) {
     <aside className="db-sidebar">
       {/* Logo */}
       <div className="db-logo">
-        <div className="db-logo-icon">
-          <Icon name="bolt" size={20} filled />
-        </div>
-        <div>
-          <div className="db-logo-name">Aikee AI</div>
-          <div className="db-logo-sub">AI Resume Builder</div>
-        </div>
+        <BrandLogo height={30} />
       </div>
 
       {/* Nav */}
@@ -1331,7 +1326,7 @@ export default function Dashboard({ user, onSignOut }) {
         <button className="db-mobile-menu-btn" onClick={() => setMobileMenuOpen(true)} aria-label="Menu">
           <Icon name="menu" size={24} />
         </button>
-        <div className="db-mobile-logo">Aikee AI</div>
+        <BrandLogo className="db-mobile-logo" height={24} />
         <div className="db-mobile-avatar-fallback" onClick={onSignOut} title="Sign out">
           {initials}
         </div>
@@ -1340,7 +1335,7 @@ export default function Dashboard({ user, onSignOut }) {
       {/* Mobile overlay menu */}
       <div className={`db-mobile-overlay${mobileMenuOpen ? " open" : ""}`}>
         <div className="db-overlay-header">
-          <div className="db-mobile-logo">Aikee AI</div>
+          <BrandLogo className="db-mobile-logo" height={24} />
           <button className="db-overlay-close" onClick={() => setMobileMenuOpen(false)}>
             <Icon name="close" size={24} />
           </button>

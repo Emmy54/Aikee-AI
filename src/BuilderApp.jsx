@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useMemo, useDeferredValue } from "react";
+import { Link } from "react-router-dom";
 import html2pdf from "html2pdf.js";
 import { supabase } from "../lib/supabaseClient";
 import { cvOperations } from "./utils/databaseHelpers";
@@ -18,6 +19,7 @@ import { getStabilityStatus } from "./services/stabilityService";
 // Constants
 import { getStepsForExperienceLevel, STEP_LABELS } from "./constants/steps";
 import { colors, css } from "./constants/theme";
+import { BETA_NOTE, CONTACT_EMAIL, SOCIAL_LINKS } from "./constants/site";
 // Utils
 import { getQuestionsForRoleMeta, generateSkillsFromAnswers, generateExperienceBullets } from "./utils/helpers";
 
@@ -157,6 +159,7 @@ export default function BuilderApp({ initialUser }) {
   const [activities, setActivities] = useState("");
   const [summaryToneLoading, setSummaryToneLoading] = useState(null);
   const [fullAILoading, setFullAILoading] = useState(false);
+  const [fullAIError, setFullAIError] = useState("");
   const [aiEnabled, setAiEnabled] = useState(false);
   const [fallbackUsed, setFallbackUsed] = useState(false);
   const fullAIInFlightRef = useRef({});
@@ -767,6 +770,7 @@ export default function BuilderApp({ initialUser }) {
 
     setFullAILoading(true);
     setFallbackUsed(false);
+    setFullAIError("");
     try {
       const requestPromise = generateFullCVData({
         jobTitle,
@@ -788,6 +792,24 @@ export default function BuilderApp({ initialUser }) {
       );
     } catch (error) {
       console.error("Full AI generation failed:", error);
+      // Turn the server's beta-gate responses into a clear tester-facing note.
+      // (ApiError carries status/code; a plain Error is a network/parse issue.)
+      if (error?.isLimitReached || error?.status === 429 || error?.code === "limit_reached") {
+        const cap = error?.cap ?? 2;
+        setFullAIError(
+          `You've used all ${cap} of your beta CV generations. Thanks for helping us test Aikee AI!`
+        );
+      } else if (error?.isNotAllowlisted || error?.code === "not_allowlisted") {
+        setFullAIError(
+          "This account isn't on the Aikee AI beta list yet. Join the waitlist and we'll be in touch."
+        );
+      } else if (error?.isAuthError || error?.status === 401) {
+        setFullAIError("Your session has expired — please sign in again.");
+      } else {
+        setFullAIError(
+          "Something went wrong generating your CV. Please try again in a moment."
+        );
+      }
     } finally {
       delete fullAIInFlightRef.current[cacheKey];
       setFullAILoading(false);
@@ -1135,6 +1157,7 @@ export default function BuilderApp({ initialUser }) {
               loadingTone={summaryToneLoading}
               onGenerateFullAI={generateFullAI}
               loadingFullAI={fullAILoading}
+              fullAIError={fullAIError}
               next={next}
               back={back}
             />
@@ -1273,6 +1296,29 @@ export default function BuilderApp({ initialUser }) {
             )}
           </div>
         </main>
+
+        <footer className="builder-footer">
+          <div className="builder-footer-main">
+            <Link to="/" className="builder-footer-brand">Aikee AI</Link>
+            <nav className="builder-footer-links" aria-label="Footer navigation">
+              <Link to="/">Home</Link>
+              <Link to="/dashboard">Dashboard</Link>
+              {CONTACT_EMAIL && <a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>}
+              {SOCIAL_LINKS.map((social) => (
+                <a key={social.href} href={social.href} target="_blank" rel="noopener noreferrer">
+                  {social.label}
+                </a>
+              ))}
+            </nav>
+          </div>
+          <div className="builder-footer-beta">
+            <span className="builder-footer-badge">Beta</span>
+            <span>{BETA_NOTE}</span>
+          </div>
+          <div className="builder-footer-copy">
+            © {new Date().getFullYear()} Aikee AI. Precision-engineered for your career.
+          </div>
+        </footer>
       </div>
 
       {generating && (

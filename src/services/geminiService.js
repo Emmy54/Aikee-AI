@@ -2,34 +2,33 @@
  * Gemini AI Service
  * Handles all interactions with Google Gemini API
  * Two main features: Skills Discovery, Experience Enhancement
- * 
+ *
  * Database Caching: All major AI requests are cached to reduce API calls
  * Cache types: 'skills', 'experience', 'summary'
+ *
+ * Transport: every request goes through our own server (/api/gemini/*) via the
+ * shared authed API client. No Google API key is ever referenced in the client
+ * bundle, and the Supabase session token rides along so the server can enforce
+ * the beta allowlist + generation limit. The full-CV call is tagged
+ * `meter: "full_cv"` so ONLY it counts against the 2-generation beta cap.
  */
 
 import { withCache } from '../utils/databaseHelpers';
-
-const USE_SERVER = import.meta.env.VITE_USE_SERVER !== "false";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
-
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent";
-
-const apiFetch = (path, options) => fetch(`${API_BASE_URL}${path}`, options);
+import { authedPostJson, getJson } from './apiClient';
 
 const normalizeBullet = (bullet) =>
   (bullet || "").replace(/<br>\s*$/i, "").trim();
 const normalizeQuestion = (question) => (question || "").replace(/\s+/g, " ").trim();
+
+// All Gemini traffic funnels through here: POST to our server with the auth
+// token attached, returns Google's parsed response, throws ApiError on failure.
+const postGemini = (body) => authedPostJson("/api/gemini/generate-content", body);
 
 // ============================================================================
 // 1. SKILLS DISCOVERY - Generate skills based on answers
 // ============================================================================
 
 export const generateRoleQuestionsWithGemini = async (role, experienceLevel, count = 5) => {
-  if (!USE_SERVER && !GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured. Add VITE_GEMINI_API_KEY to .env or enable server mode.");
-  }
-
   const safeCount = Math.max(3, Math.min(10, Number(count) || 5));
   const prompt = `You are a professional CV coach. Generate ${safeCount} concise, role-specific questions to uncover relevant skills and experience for a ${role || "target"} role.
 
@@ -51,23 +50,7 @@ Do not include code block formatting, just the raw JSON array.`;
     ],
   };
 
-  const response = USE_SERVER
-    ? await apiFetch("/api/gemini/generate-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-    : await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
-  }
-
-  const data = await response.json();
+  const data = await postGemini(body);
   const content = data.candidates[0].content.parts[0].text;
   const jsonMatch = content.match(/\[[\s\S]*\]/);
   if (!jsonMatch) {
@@ -80,10 +63,6 @@ Do not include code block formatting, just the raw JSON array.`;
 };
 
 export const generateSkillsFromGemini = async (answers, role, questions) => {
-  if (!USE_SERVER && !GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured. Add VITE_GEMINI_API_KEY to .env or enable server mode.");
-  }
-
   // Use cached version with database support
   try {
     const result = await withCache(
@@ -128,25 +107,9 @@ Do not include the markdown code block formatting, just the raw JSON array.`;
       ],
     };
 
-    const response = USE_SERVER
-      ? await apiFetch("/api/gemini/generate-content", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        })
-      : await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await postGemini(body);
     const content = data.candidates[0].content.parts[0].text;
-    
+
     // Parse the JSON array from response
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
@@ -166,10 +129,6 @@ Do not include the markdown code block formatting, just the raw JSON array.`;
 // ============================================================================
 
 export const enhanceExperienceWithGemini = async (rawExperience, jobTitle, role) => {
-  if (!USE_SERVER && !GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured");
-  }
-
   try {
     const result = await withCache(
       'experience',
@@ -217,23 +176,7 @@ Do not include code block formatting, just the raw JSON.`;
       ],
     };
 
-    const response = USE_SERVER
-      ? await apiFetch("/api/gemini/generate-content", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        })
-      : await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await postGemini(body);
     const content = data.candidates[0].content.parts[0].text;
 
     // Parse the JSON array from response
@@ -255,10 +198,6 @@ Do not include code block formatting, just the raw JSON.`;
 // ============================================================================
 
 export const enhanceProjectWithGemini = async (rawProject, jobTitle) => {
-  if (!USE_SERVER && !GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured");
-  }
-
   try {
     const result = await withCache(
       'experience', // Reuse experience cache type for projects
@@ -306,23 +245,7 @@ Do not include code block formatting, just the raw JSON.`;
       ],
     };
 
-    const response = USE_SERVER
-      ? await apiFetch("/api/gemini/generate-content", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        })
-      : await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await postGemini(body);
     const content = data.candidates[0].content.parts[0].text;
 
     // Parse the JSON array from response
@@ -388,10 +311,6 @@ export const generateProfessionalSummaryWithGemini = async (
   skills,
   experiences
 ) => {
-  if (!USE_SERVER && !GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured");
-  }
-
   try {
     const result = await withCache(
       'summary',
@@ -441,23 +360,7 @@ Return ONLY the summary text, no quotes or formatting.`;
       ],
     };
 
-    const response = USE_SERVER
-      ? await apiFetch("/api/gemini/generate-content", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        })
-      : await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await postGemini(body);
     const summary = data.candidates[0].content.parts[0].text.trim();
     return summary;
   } catch (error) {
@@ -471,10 +374,6 @@ Return ONLY the summary text, no quotes or formatting.`;
 // ============================================================================
 
 export const rewriteSummaryWithGemini = async (summaryText, tone) => {
-  if (!USE_SERVER && !GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured");
-  }
-
   if (!summaryText || !summaryText.trim()) {
     throw new Error("Summary text is required");
   }
@@ -500,8 +399,8 @@ export const rewriteSummaryWithGemini = async (summaryText, tone) => {
 const _rewriteSummaryAPI = async ({ summaryText, tone }) => {
   try {
     const toneLabel = tone === "casual" ? "casual and friendly" : "professional and formal";
-    const prompt = `Rewrite the following professional summary to sound ${toneLabel}. 
-Keep the meaning and key details intact. 
+    const prompt = `Rewrite the following professional summary to sound ${toneLabel}.
+Keep the meaning and key details intact.
 Return only the rewritten summary text, no quotes or formatting.
 
 Summary:
@@ -515,23 +414,7 @@ ${summaryText}`;
       ],
     };
 
-    const response = USE_SERVER
-      ? await apiFetch("/api/gemini/generate-content", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        })
-      : await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await postGemini(body);
     const content = data.candidates[0].content.parts[0].text.trim();
     return content;
   } catch (error) {
@@ -554,10 +437,6 @@ export const generateFullCVData = async ({
   projects,
   selectedSkills,
 }) => {
-  if (!USE_SERVER && !GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured");
-  }
-
   const qaContext = questions
     .map((q, i) => `Q: ${q}\nA: ${skillAnswers[i] || "Not answered"}`)
     .join("\n\n");
@@ -628,7 +507,11 @@ Return ONLY valid JSON with this exact shape:
   "summary": "summary text"
 }`;
 
+  // `meter: "full_cv"` is the ONLY request tagged for metering — the server
+  // consumes one of the tester's 2 beta credits for this call (and refunds it
+  // if Gemini ultimately fails). All the per-section helpers above are untagged.
   const body = {
+    meter: "full_cv",
     contents: [
       {
         parts: [{ text: prompt }],
@@ -636,23 +519,7 @@ Return ONLY valid JSON with this exact shape:
     ],
   };
 
-  const response = USE_SERVER
-    ? await apiFetch("/api/gemini/generate-content", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-    : await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
-  }
-
-  const data = await response.json();
+  const data = await postGemini(body);
   const content = data.candidates[0].content.parts[0].text;
   const fallbackUsed = !!data.fallbackUsed;
   const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -685,10 +552,6 @@ export const generateEnhancedCVExperienceWithGemini = async (
   role,
   jobTitle
 ) => {
-  if (!USE_SERVER && !GEMINI_API_KEY) {
-    throw new Error("Gemini API key not configured");
-  }
-
   try {
     const result = await withCache(
       'skills', // Use skills cache type as primary input is questions
@@ -768,23 +631,7 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
       ],
     };
 
-    const response = USE_SERVER
-      ? await apiFetch("/api/gemini/generate-content", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        })
-      : await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-
-    if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await postGemini(body);
     const content = data.candidates[0].content.parts[0].text;
 
     // Parse JSON from response
@@ -805,50 +652,15 @@ Return ONLY valid JSON, no markdown formatting or code blocks.`;
 // UTILITY: Check API configuration
 // ============================================================================
 
-export const isGeminiConfigured = () => {
-  return USE_SERVER || !!GEMINI_API_KEY;
-};
+// Server-only now: availability is decided by the backend (which holds the
+// keys and the auth/allowlist gate), so the client always considers Gemini
+// "configured" and lets the server return a real error if it isn't.
+export const isGeminiConfigured = () => true;
 
 export const getApiStatus = async () => {
-  if (USE_SERVER) {
-    try {
-      const response = await apiFetch("/api/gemini/status", { method: "GET" });
-      if (!response.ok) {
-        return { configured: true, valid: false, message: "Status check failed" };
-      }
-      return await response.json();
-    } catch (error) {
-      return {
-        configured: true,
-        valid: false,
-        message: `Connection error: ${error.message}`,
-      };
-    }
+  const status = await getJson("/api/gemini/status");
+  if (!status) {
+    return { configured: true, valid: false, message: "Status check failed" };
   }
-
-  if (!GEMINI_API_KEY) {
-    return { configured: false, message: "API key not found in .env" };
-  }
-
-  try {
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: "test" }] }],
-      }),
-    });
-
-    return {
-      configured: true,
-      valid: response.ok,
-      message: response.ok ? "API key is valid" : "API key validation failed",
-    };
-  } catch (error) {
-    return {
-      configured: true,
-      valid: false,
-      message: `Connection error: ${error.message}`,
-    };
-  }
+  return status;
 };

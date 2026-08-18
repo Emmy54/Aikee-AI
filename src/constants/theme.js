@@ -66,7 +66,7 @@ export const css = `
     position: sticky;
     top: 0;
     z-index: 100;
-    background: rgba(249, 249, 255, 0.8);
+    background: rgba(232, 232, 252, 0.75);
     border-bottom: none;
   }
 
@@ -192,7 +192,9 @@ export const css = `
   }
 
   .hdr-menu-item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
     width: 100%;
     background: transparent;
     border: none;
@@ -207,8 +209,152 @@ export const css = `
     transition: background 0.2s;
   }
 
+  .hdr-menu-item svg { width: 1rem; height: 1rem; flex-shrink: 0; color: ${colors.onSurfaceVariant}; }
+  .hdr-menu-item.danger svg { color: #dc2626; }
+
   .hdr-menu-item:hover { background: ${colors.surfaceContainerLow}; }
   .hdr-menu-item.danger { color: #dc2626; }
+
+  /* Icons inherit the button's text colour and sit centred with the label. */
+  .hdr-btn svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+
+  .hdr-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .hdr-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .hdr-divider {
+    width: 1px;
+    height: 1.5rem;
+    background: ${colors.surfaceContainerHigh};
+    flex-shrink: 0;
+  }
+
+  .hdr-usermenu { position: relative; }
+
+  .hdr-user-btn { padding: 0.375rem; }
+
+  /* A real initial-in-a-circle avatar reads as far more finished than the 👤
+     emoji it replaces, and reuses the brand gradient. */
+  .hdr-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, ${colors.primary}, ${colors.primaryContainer});
+    color: ${colors.onPrimary};
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 0.8125rem;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .hdr-status-warn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.3125rem 0.625rem;
+    border-radius: 9999px;
+    background: #fef3f2;
+    color: #b42318;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .hdr-status-warn svg { width: 0.875rem; height: 0.875rem; flex-shrink: 0; }
+
+  .hdr-menu-sep {
+    height: 1px;
+    background: ${colors.surfaceContainerHigh};
+    margin: 0.25rem 0;
+  }
+
+  .builder-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    padding: 1.5rem 2.5rem;
+    border-top: 1px solid ${colors.surfaceContainerHigh};
+    background: ${colors.surfaceContainerLow};
+    font-family: 'Inter', sans-serif;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: ${colors.onSurfaceVariant};
+  }
+
+  .builder-footer-badge {
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: ${colors.primary};
+    background: ${colors.surfaceContainerHigh};
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+  }
+
+  .builder-footer-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  .builder-footer-brand {
+    font-family: 'Manrope', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: ${colors.primary};
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .builder-footer-brand:hover { opacity: 0.75; }
+
+  .builder-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 0.875rem;
+  }
+
+  .builder-footer-links a {
+    color: ${colors.onSurfaceVariant};
+    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  .builder-footer-links a:hover { color: ${colors.primary}; }
+
+  .builder-footer-beta {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    color: ${colors.onSurfaceVariant};
+    max-width: 60rem;
+  }
+
+  .builder-footer-copy {
+    font-size: 0.75rem;
+    color: ${colors.onSurfaceVariant};
+    opacity: 0.7;
+  }
+
+  .hdr-btn.hdr-user-btn:hover { background: ${colors.surfaceContainerHigh}; }
 
   .main {
     flex: 1;
@@ -857,14 +1003,13 @@ export const css = `
       font-weight: 600;
       box-shadow: 0 0.0625rem 0.1875rem rgba(0, 23, 75, 0.1);
     }
+
+    .hdr-progress { display: none; }
   }
 
   @media (max-width: 900px) {
     .header {
-      padding: 1rem 1.25rem;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0.75rem;
+      padding: 0.875rem 1.25rem;
     }
 
     .step-bar {
@@ -872,12 +1017,15 @@ export const css = `
       gap: 0.25rem;
     }
 
-    /* Stacked header: let the action row use the full width and align left
-       with the logo instead of hugging the right edge. */
+    /* Header stays a clean two-item row on mobile + tablet: logo left, avatar-menu
+       right. The step progress is hidden below the desktop split breakpoint because
+       each step already prints "STEP n —" in its body. */
     .hdr-right {
-      width: 100%;
-      justify-content: flex-start;
+      gap: 0.5rem;
     }
+
+    /* The vertical rule only makes sense on the single-row desktop layout. */
+    .hdr-divider { display: none; }
 
     .main {
       padding: 2.5rem 1rem;

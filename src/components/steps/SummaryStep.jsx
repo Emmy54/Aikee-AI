@@ -12,6 +12,7 @@ export default function SummaryStep({
   onGenerateFullAI,
   loadingTone,
   loadingFullAI,
+  fullAIError,
   next,
   back,
 }) {
@@ -37,7 +38,7 @@ export default function SummaryStep({
           onClick={onGenerateFullAI}
           disabled={!geminiAvailable || loadingFullAI}
         >
-          {loadingFullAI ? "Generating CV..." : "Generate CV"}
+          {loadingFullAI ? "Generating CV..." : "Click here to Generate CV"}
         </button>
         {/* <button
           className="btn btn-ghost"
@@ -56,6 +57,24 @@ export default function SummaryStep({
           Tone AI disabled
         </button> */}
       </div>
+
+      {fullAIError && (
+        <div
+          role="alert"
+          style={{
+            marginTop: 12,
+            padding: "12px 14px",
+            borderRadius: 10,
+            border: "1px solid #f2c6c6",
+            background: "#fdecec",
+            color: "#8a1f1f",
+            fontSize: 14,
+            lineHeight: 1.45,
+          }}
+        >
+          {fullAIError}
+        </div>
+      )}
       
       <button className="btn btn-primary" onClick={next}>Continue →</button>
       <button className="btn btn-ghost" onClick={back}>← Back</button>

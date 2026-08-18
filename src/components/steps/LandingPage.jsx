@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import resumePreviewImage from "../../assets/resume-preview.svg";
 import CVimage from "../../assets/steptodown.com773133.jpg";
+import { CONTACT_EMAIL, SOCIAL_LINKS, BETA_NOTE } from "../../constants/site";
+import BrandLogo from "../BrandLogo";
 
 // Design tokens
 const T = {
@@ -484,9 +486,24 @@ const css = `
     text-decoration: none; transition: color 0.2s;
   }
   .nx-footer-col a:hover { color: var(--primary); }
-  .nx-footer-bottom {
+  .nx-footer-muted {
+    font-size: 14px; color: var(--on-surface-variant); opacity: 0.7;
+  }
+  .nx-footer-beta {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 16px 0;
     border-top: 1px solid var(--border-subtle);
-    padding-top: 24px;
+    font-size: 13px; line-height: 1.5; color: var(--on-surface-variant);
+  }
+  .nx-footer-beta-badge {
+    flex-shrink: 0;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--primary);
+    background: var(--surface-container-high);
+    padding: 3px 9px; border-radius: 999px;
+  }
+  .nx-footer-bottom {
+    padding-top: 8px;
     display: flex; flex-direction: column; gap: 8px;
   }
   .nx-footer-legal {
@@ -566,7 +583,7 @@ function Navbar({ onNav }) {
     <>
       <header className="nx-header">
         <div className="nx-header-inner">
-          <span className="nx-logo">Aikee AI</span>
+          <BrandLogo className="nx-logo" height={28} />
           <ul className="nx-desktop-nav">
             <li><a href="#features" className="active">Features</a></li>
             <li><a href="#templates">Templates</a></li>
@@ -585,7 +602,7 @@ function Navbar({ onNav }) {
 
       <div className={`nx-overlay${open ? " open" : ""}`}>
         <div className="nx-overlay-head">
-          <span className="nx-logo">Aikee AI</span>
+          <BrandLogo className="nx-logo" height={28} />
           <button className="nx-menu-btn" onClick={close} aria-label="Close menu">
             <Icon name="close" />
           </button>
@@ -777,6 +794,9 @@ function CTASection({ onNav }) {
 }
 
 function Footer() {
+  const year = new Date().getFullYear();
+  const hasContactInfo = Boolean(CONTACT_EMAIL) || SOCIAL_LINKS.length > 0;
+
   return (
     <footer className="nx-footer">
       <div className="nx-footer-inner">
@@ -787,23 +807,35 @@ function Footer() {
               <span className="nx-footer-col-heading">Product</span>
               <a href="#features">Features</a>
               <a href="#templates">Templates</a>
-              <a href="#pricing">Pricing</a>
+              <a href="#testimonials">Reviews</a>
             </div>
             <div className="nx-footer-col">
               <span className="nx-footer-col-heading">Company</span>
-              <a href="#">About Us</a>
-              <a href="#">Contact</a>
-              <a href="#">Support</a>
+              {CONTACT_EMAIL && (
+                <a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>
+              )}
+              {SOCIAL_LINKS.map((social) => (
+                <a
+                  key={social.href}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {social.label}
+                </a>
+              ))}
+              {!hasContactInfo && (
+                <span className="nx-footer-muted">Contact details coming soon</span>
+              )}
             </div>
           </div>
         </div>
+        <div className="nx-footer-beta">
+          <span className="nx-footer-beta-badge">Beta</span>
+          <span>{BETA_NOTE}</span>
+        </div>
         <div className="nx-footer-bottom">
-          <div className="nx-footer-legal">
-            <a href="#">Privacy Policy</a>
-            <a href="#">Terms of Service</a>
-            <a href="#">Cookie Policy</a>
-          </div>
-          <p className="nx-footer-copy">© 2026 Aikee AI. Precision-engineered for your career.</p>
+          <p className="nx-footer-copy">© {year} Aikee AI. Precision-engineered for your career.</p>
         </div>
       </div>
     </footer>

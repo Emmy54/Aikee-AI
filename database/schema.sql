@@ -1,24 +1,33 @@
 -- CV Builder AI Database Schema
 -- This schema sets up tables for CVs and AI cache with proper security policies
+--
+-- NOTE (2026-08 reconciliation): the profiles table below was corrected to match
+-- the LIVE database, which uses `profiles` keyed by `user_id` (the old committed
+-- version defined `user_profiles` keyed by `id`, which the app never used). The
+-- app reads/writes profiles via user_id with columns email/first_name/last_name/
+-- avatar_url. Run database/verify_rls.sql after applying to confirm RLS.
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================
--- User Profiles Table
+-- Profiles Table
 -- ============================================
-CREATE TABLE IF NOT EXISTS user_profiles (
-  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email text NOT NULL,
-  display_name text,
+-- One row per auth user, keyed by user_id. In the live project a row is created
+-- automatically by the signup trigger (handle_new_user, below); the app also
+-- upserts on user_id, so a row is guaranteed either way.
+CREATE TABLE IF NOT EXISTS profiles (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email text,
+  first_name text,
+  last_name text,
   avatar_url text,
   created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT user_profiles_user_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
+  updated_at timestamp with time zone DEFAULT now()
 );
 
--- Index for user_profiles
-CREATE INDEX idx_user_profiles_email ON user_profiles(email);
+-- Index for profiles
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON profiles(email);
 
 -- ============================================
 -- CVs Table
@@ -65,19 +74,26 @@ CREATE INDEX idx_ai_cache_user_type_hash ON ai_cache(user_id, type, input_hash);
 -- ============================================
 
 -- Enable RLS on tables
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cvs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_cache ENABLE ROW LEVEL SECURITY;
 
--- User Profiles RLS Policies
+-- Profiles RLS Policies (self-scoped on user_id)
+DROP POLICY IF EXISTS "Users can view their own profile" ON profiles;
 CREATE POLICY "Users can view their own profile"
-  ON user_profiles FOR SELECT
-  USING (auth.uid() = id);
+  ON profiles FOR SELECT
+  USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+CREATE POLICY "Users can insert their own profile"
+  ON profiles FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
 CREATE POLICY "Users can update their own profile"
-  ON user_profiles FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+  ON profiles FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- CVs RLS Policies
 CREATE POLICY "Users can view their own CVs"
@@ -130,12 +146,43 @@ CREATE TRIGGER update_cvs_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
 
--- Trigger to auto-update updated_at on user_profiles table
-DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON user_profiles;
-CREATE TRIGGER update_user_profiles_updated_at
-  BEFORE UPDATE ON user_profiles
+-- Trigger to auto-update updated_at on profiles table
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
+CREATE TRIGGER update_profiles_updated_at
+  BEFORE UPDATE ON profiles
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- Signup trigger: auto-create a profile row
+-- ============================================
+-- Mirrors the live project: when a new auth user is created, seed their
+-- profiles row. SECURITY DEFINER so it runs regardless of the caller's RLS.
+-- ON CONFLICT DO NOTHING keeps it safe alongside the app's own upsert.
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, pg_temp
+AS $$
+BEGIN
+  INSERT INTO public.profiles (user_id, email, first_name, last_name)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'first_name', split_part(NEW.email, '@', 1)),
+    COALESCE(NEW.raw_user_meta_data->>'last_name', '')
+  )
+  ON CONFLICT (user_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_new_user();
 
 -- ============================================
 -- Notes

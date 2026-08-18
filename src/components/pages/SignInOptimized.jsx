@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
+import BrandLogo from "../BrandLogo";
 
 const C = {
   primary: "#0029c0",
@@ -110,6 +111,16 @@ function GitHubIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 18, height: 18 }}>
       <path d="M12 .5C5.65.5.5 5.65.5 12c0 5.1 3.3 9.42 7.88 10.95.58.11.79-.25.79-.56v-2.18c-3.21.7-3.89-1.38-3.89-1.38-.53-1.35-1.29-1.71-1.29-1.71-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.71 1.26 3.37.96.1-.75.4-1.26.73-1.55-2.56-.29-5.26-1.28-5.26-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.21-1.49 3.18-1.18 3.18-1.18.63 1.58.23 2.75.11 3.04.74.81 1.18 1.84 1.18 3.1 0 4.42-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.2c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z" />
+    </svg>
+  );
+}
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 48 48" style={{ width: 18, height: 18, display: 'block' }} aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.73 1.23 9.24 3.64l6.86-6.86C35.95 2.35 30.62 0 24 0 14.63 0 6.41 5.38 2.5 13.2l8 6.2C12.26 14.7 17.56 9.5 24 9.5Z" />
+      <path fill="#4285F4" d="M46.5 24.5c0-1.64-.15-3.22-.42-4.74H24v9h12.7c-.54 2.96-2.2 5.47-4.7 7.17l7.62 5.9C43.7 37.2 46.5 31.3 46.5 24.5Z" />
+      <path fill="#FBBC05" d="M32.99 37.34c-2.42 1.62-5.5 2.57-8.99 2.57-6.45 0-11.94-4.36-13.89-10.24l-8.1 6.28C4.73 42.49 13.41 48 24 48c6.11 0 11.27-2.03 15.02-5.66l-6.03-4.99Z" />
+      <path fill="#34A853" d="M12.11 29.67A14.54 14.54 0 0 1 11.5 24c0-1.55.27-3.06.75-4.5l-8.1-6.26A23.8 23.8 0 0 0 0 24c0 3.84.92 7.48 2.56 10.76l9.55-9.09Z" />
     </svg>
   );
 }
@@ -293,7 +304,7 @@ export default function SignInOptimized({ onSignInSuccess }) {
     <div className="si-page">
       <header className="si-header">
         <div className="si-header-inner">
-          <span className="si-logo">Aikee AI</span>
+          <BrandLogo className="si-logo" height={26} />
           <a href="#" className="si-help">Help</a>
         </div>
       </header>
@@ -312,7 +323,7 @@ export default function SignInOptimized({ onSignInSuccess }) {
 
           <div className="si-social-group">
             <button className="si-social-btn" onClick={handleGoogleSignIn} disabled={loading} type="button">
-              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAb5uCBUgvriLrbkDSSlwPVrmtoqw5cPRUEtM3xBgeCWfBITH64s8mvG6bypgUcodt3YZP269OK7MAkV308UpOv5ejhbW2fKcTHEMRKqe1PiBpuREpZLj423fNBsDGy9N5Sx-bZTtTz51x-X5wdjBNrBx7lIq3N9eCjE9pwwx9fYuDGVfYMsEDa1ybSsCbdj0LDWxp4I75ckCnB_zt8BHgxydDw3lzuurqlGIiStumRORaDhw_irZrDzViNNCdN_cVYk0AVsBINzjw" alt="Google" style={{ width: 20, height: 20 }} />
+              <GoogleIcon />
               <span>Continue with Google</span>
             </button>
             <button className="si-social-btn" onClick={handleGitHubSignIn} disabled={loading} type="button">

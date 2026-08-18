@@ -1,119 +1,39 @@
-const USE_SERVER = import.meta.env.VITE_USE_SERVER !== "false";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+import { authedPostJson, getJson } from "./apiClient";
 
-const STABILITY_API_KEY = import.meta.env.VITE_STABILITY_API_KEY;
-
-const apiFetch = (path, options) => fetch(`${API_BASE_URL}${path}`, options);
+// Stability (AI headshot) is server-only: the image + prompt go through
+// /api/stability/headshot with the Supabase token attached, so the API key
+// stays on the server and the beta allowlist is enforced. Not metered.
 
 export const getStabilityStatus = async () => {
-  if (USE_SERVER) {
-    try {
-      const response = await apiFetch("/api/stability/status", { method: "GET" });
-      if (!response.ok) {
-        return { configured: true, valid: false, message: "Status check failed" };
-      }
-      return await response.json();
-    } catch (error) {
-      return {
-        configured: true,
-        valid: false,
-        message: `Connection error: ${error.message}`,
-      };
-    }
+  const status = await getJson("/api/stability/status");
+  if (!status) {
+    return { configured: true, valid: false, message: "Status check failed" };
   }
-
-  if (!STABILITY_API_KEY) {
-    return { configured: false, valid: false, message: "API key not found in .env" };
-  }
-
-  return { configured: true, valid: true, message: "API key present" };
+  return status;
 };
 
 export const generateHeadshotWithStabilityAI = async (base64ImageData, customPrompt) => {
-  if (!USE_SERVER && !STABILITY_API_KEY) {
-    console.warn("⚠️ Stability AI API key not configured. Add VITE_STABILITY_API_KEY to .env.local");
-    return null;
-  }
-
   try {
-    const prompt = customPrompt || `Professional LinkedIn corporate headshot, high-quality photography, 
-    studio lighting, neutral background, business attire, photorealistic, sharp focus on face, 
+    const prompt = customPrompt || `Professional LinkedIn corporate headshot, high-quality photography,
+    studio lighting, neutral background, business attire, photorealistic, sharp focus on face,
     professional appearance, no filters`;
 
     console.log("🎨 Processing headshot with Stability AI SDXL...");
 
-    const formData = new FormData();
-    
-    const byteCharacters = atob(base64ImageData);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const imageBlob = new Blob([byteArray], { type: 'image/jpeg' });
+    const data = await authedPostJson("/api/stability/headshot", {
+      base64ImageData,
+      prompt,
+      mimeType: "image/jpeg",
+    });
 
-    formData.append('image', imageBlob);
-    formData.append('prompt', prompt);
-    formData.append('output_format', 'jpeg');
-
-    console.log("📤 Sending request to Stability AI...", { prompt });
-
-    const response = USE_SERVER
-      ? await apiFetch("/api/stability/headshot", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            base64ImageData,
-            prompt,
-            mimeType: "image/jpeg",
-          }),
-        })
-      : await fetch(`https://api.stability.ai/v2beta/stable-image/generate/core`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${STABILITY_API_KEY}`,
-            Accept: "image/*",
-          },
-          body: formData,
-        });
-
-    console.log("📨 Stability AI response status:", response.status, response.statusText);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("❌ Stability AI Error:", {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText,
-      });
-      return null;
-    }
-
-    if (USE_SERVER) {
-      const data = await response.json();
-      if (data?.image) {
-        return `data:${data.mimeType || "image/jpeg"};base64,${data.image}`;
-      }
-      return null;
-    }
-
-    const contentType = response.headers.get("content-type") || "";
-    if (contentType.startsWith("image/")) {
-      const arrayBuffer = await response.arrayBuffer();
-      const base64 = btoa(
-        String.fromCharCode(...new Uint8Array(arrayBuffer))
-      );
-      return `data:${contentType};base64,${base64}`;
-    }
-
-    const data = await response.json().catch(() => ({}));
     if (data?.image) {
-      return `data:image/jpeg;base64,${data.image}`;
+      return `data:${data.mimeType || "image/jpeg"};base64,${data.image}`;
     }
-
     return null;
   } catch (error) {
-    console.error("❌ Stability AI error:", error.message, error);
+    // Headshot is an optional enhancement — never crash the flow. (This also
+    // swallows auth/allowlist errors to null, which is fine here.)
+    console.error("❌ Stability AI error:", error?.message || error);
     return null;
   }
 };
