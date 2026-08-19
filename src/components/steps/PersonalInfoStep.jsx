@@ -13,6 +13,7 @@ export default function PersonalInfoStep({
   setAddress,
   photoPreview,
   handlePhotoUpload,
+  photoError,
   next,
   back,
 }) {
@@ -44,12 +45,27 @@ export default function PersonalInfoStep({
       <div className="field">
         <label>Profile Photo (optional)</label>
         <input type="file" accept="image/*" onChange={handlePhotoUpload} style={{ padding: "10px 16px" }} />
+        {photoError && (
+          <p
+            role="alert"
+            style={{
+              fontSize: "0.8125rem",
+              color: "#b42318",
+              background: "#fef3f2",
+              padding: "0.5rem 0.75rem",
+              borderRadius: "0.5rem",
+              marginTop: "0.5rem",
+            }}
+          >
+            {photoError}
+          </p>
+        )}
         {photoPreview && (
           <img src={photoPreview} alt="preview" style={{ width: 72, height: 72, borderRadius: "50%", marginTop: 12, objectFit: "cover", border: `2px solid ${colors.primary}` }} />
         )}
-        {!photoPreview && (
+        {!photoPreview && !photoError && (
           <p style={{ fontSize: "0.75rem", color: colors.onSurfaceVariant, marginTop: "0.5rem" }}>
-            No headshot? Use the ✨ Headshot Generator button in the header to create a professional one!
+            No headshot? Use the Headshot option in the account menu to create a professional one!
           </p>
         )}
       </div>

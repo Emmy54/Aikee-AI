@@ -9,10 +9,16 @@ by the launch tasks. Check each box as you go.
 
 ## 1. Database (tasks #1, #2, #4)
 
-- ⬜ **Run the migration** on the live project: Supabase Dashboard → SQL Editor →
-  paste [`database/beta_launch.sql`](../database/beta_launch.sql) → Run. It is
-  idempotent and additive (creates `usage` + `beta_allowlist` + the gating RPCs;
-  touches no existing data).
+- ⬜ **Run the migrations** on the live project: Supabase Dashboard → SQL Editor →
+  paste and Run, **in this order**:
+  1. [`database/beta_launch.sql`](../database/beta_launch.sql) — creates
+     `beta_allowlist` + `usage` + the gating RPCs.
+  2. [`database/beta_window.sql`](../database/beta_window.sql) — adds the
+     per-tester 24-hour access window, and **closes a hole**: the old
+     `refund_full_cv_generation()` was callable from the browser, so any tester
+     could reset their own counter and generate without limit.
+
+  Both are idempotent and additive; re-running is safe.
 - ⬜ **Add your testers' emails** to the allowlist (this is what "verifies
   waitlisted testers"):
   ```sql
@@ -28,35 +34,78 @@ by the launch tasks. Check each box as you go.
   testers can't read each other's `usage` rows and nobody can read the allowlist
   (task #6).
 
+### How the 24-hour window works
+
+Each tester's clock starts at their **first sign-in**, not at a fixed global
+deadline — so someone who's busy on launch day still gets a full 24 hours
+whenever they first arrive. The clock is write-once (reloading can't restart or
+extend it), and it is started by both the client *and* the server, so a tester
+can't dodge it by blocking a request.
+
+When it elapses they get a **"The beta test has closed"** page, and the server
+independently rejects every paid call with `beta_window_closed`. There is no
+countdown in the UI by design.
+
+Useful operations (full list in the notes at the bottom of `beta_window.sql`):
+
+```sql
+-- Give a tester a fresh 24 hours (e.g. they never got a chance to try it)
+UPDATE usage SET access_started_at = NULL WHERE user_id =
+  (SELECT id FROM auth.users WHERE lower(email) = 'tester@example.com');
+
+-- See where everyone stands
+SELECT u.email, us.full_cv_count, us.access_started_at,
+       us.access_started_at + interval '24 hours' AS expires_at,
+       now() >= us.access_started_at + interval '24 hours' AS expired
+FROM usage us JOIN auth.users u ON u.id = us.user_id
+ORDER BY us.access_started_at NULLS FIRST;
+```
+
+Window length is `BETA_WINDOW_HOURS` (default 24) — an env var, no migration
+needed to change it.
+
 ---
 
 ## 2. Environment variables
 
-### Server (`server/index.js`) — secret, never shipped to the browser
-| Variable | Value | Notes |
-|---|---|---|
-| `SUPABASE_URL` | your project URL | or reuse `VITE_SUPABASE_PUBLIC_URL` |
-| `SUPABASE_ANON_KEY` | your anon key | or reuse `VITE_SUPABASE_PUBLIC_ANON_KEY` |
-| `GEMINI_API_KEY` | Google AI key | resume generation |
-| `GEMINI_API_KEY_FALLBACK` | *(optional)* | second key used on rate-limit |
-| `GROQ_QUESTIONS_API_KEY` | Groq key | interview questions |
-| `STABILITY_API_KEY` | Stability key | headshots |
-| `BETA_REQUIRE_AUTH` | `true` | ✅ default; **leave it true in prod** |
-| `BETA_FULL_CV_LIMIT` | `2` | full-CV generations per tester |
-| `ENFORCE_HTTPS` | `true` | turn **on** in prod (behind a TLS proxy); leave off locally |
-| `PORT` | `8787` | or whatever your host assigns |
+The app reads two *kinds* of variable, and the difference is the whole ballgame:
 
-### Client build (`import.meta.env.VITE_*`) — **baked into the public bundle**
-| Variable | Value | Notes |
-|---|---|---|
-| `VITE_SUPABASE_PUBLIC_URL` | your project URL | public by design (RLS protects data) |
-| `VITE_SUPABASE_PUBLIC_ANON_KEY` | your anon key | public by design |
-| `VITE_API_BASE_URL` | *(leave empty)* | same-origin; the proxy forwards `/api/*` |
+| Kind | Prefix | Where it ends up | Safe for secrets? |
+|---|---|---|---|
+| Server-only | **no** `VITE_` | Stays on the server / inside the function | ✅ yes |
+| Client | `VITE_` | **Compiled into the public JS bundle** | ❌ never |
 
-> ⚠️ **Never** put `GEMINI_/GROQ_/STABILITY_` keys in a `VITE_` variable — anything
-> `VITE_*` is embedded in the JS bundle and readable by anyone. All provider calls
-> now go through the server precisely so these stay secret. (Verified: the built
-> bundle contains no provider keys or endpoints.)
+> ⚠️ A `VITE_`-prefixed variable is readable by anyone who opens devtools on your
+> site. That is why the provider keys below have no prefix, and why
+> `api/_lib/config.js` deliberately does **not** fall back to `VITE_GEMINI_API_KEY`
+> and friends any more. The Supabase URL and anon key are the exception — they are
+> *designed* to be public, and Row Level Security is what protects your data.
+
+Copy [`.env.example`](../.env.example) to `.env.local` for local work. On Vercel,
+"setting env vars" just means pasting these same name/value pairs into
+**Project → Settings → Environment Variables** (apply them to Production, Preview
+and Development). `.env.local` is gitignored and never leaves your machine.
+
+### Set these on Vercel
+| Variable | Value |
+|---|---|
+| `GEMINI_API_KEY` | your Google AI key |
+| `GEMINI_API_KEY_FALLBACK` | *(optional)* second key, used on rate-limit |
+| `GROQ_QUESTIONS_API_KEY` | your Groq key |
+| `STABILITY_API_KEY` | your Stability key |
+| `VITE_SUPABASE_PUBLIC_URL` | your Supabase project URL |
+| `VITE_SUPABASE_PUBLIC_ANON_KEY` | your Supabase anon key |
+| `BETA_FULL_CV_LIMIT` | `2` |
+| `BETA_WINDOW_HOURS` | `24` |
+
+### Do NOT set these on Vercel
+| Variable | Why |
+|---|---|
+| `BETA_REQUIRE_AUTH` | Defaults to **on**. Only ever set it to `false` locally — it disables auth *and* metering. |
+| `ENFORCE_HTTPS` | Gone. Vercel is HTTPS-only and HSTS is set in `vercel.json`. |
+| `PORT` | Functions have no port. |
+| `VITE_API_BASE_URL` | Leave empty — the SPA and API share one origin. |
+| `VITE_GEMINI_API_KEY` / `VITE_STABILITY_API_KEY` / `VITE_GROQ_QUESTIONS_API_KEY` | Would leak the key into the browser bundle. |
 
 - ⬜ Fill [`src/constants/site.js`](../src/constants/site.js) with your real
   `CONTACT_EMAIL` and `SOCIAL_LINKS` (task #5). Blank entries are simply not
@@ -65,79 +114,73 @@ by the launch tasks. Check each box as you go.
 
 ---
 
-## 3. HTTPS (task #6)
+## 3. Hosting on Vercel (task #6)
 
-Not deployed yet, so this can't be "confirmed live" — but here is exactly how to
-enforce it. The app is **same-origin**: a reverse proxy serves the built static
-site and forwards `/api/*` to the Node server. That proxy is the primary place
-HTTPS is enforced. The server also 301s plaintext → https and sends HSTS when
-`ENFORCE_HTTPS=true` (defense in depth).
+The API is **not** a long-running Node process any more — Vercel has nothing to
+keep alive on a port. Each route is a serverless function:
 
-**Option A — Caddy (automatic Let's Encrypt certificate, simplest):**
-```caddyfile
-your-domain.com {
-    encode gzip
-    # API → Node server (adds X-Forwarded-Proto so the app sees the real scheme)
-    handle /api/* {
-        reverse_proxy localhost:8787
-    }
-    # Everything else → the built SPA, with SPA fallback to index.html
-    handle {
-        root * /var/www/aikee/dist
-        try_files {path} /index.html
-        file_server
-    }
-    header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-}
 ```
-Caddy obtains + renews the TLS cert and redirects HTTP→HTTPS automatically.
-
-**Option B — nginx + certbot:**
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-    return 301 https://$host$request_uri;      # force HTTPS
-}
-server {
-    listen 443 ssl http2;
-    server_name your-domain.com;
-    # ssl_certificate / ssl_certificate_key managed by `certbot --nginx`
-    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
-
-    root /var/www/aikee/dist;
-    location /api/ {
-        proxy_pass http://127.0.0.1:8787;
-        proxy_set_header X-Forwarded-Proto $scheme;   # lets the server verify https
-        proxy_set_header Host $host;
-    }
-    location / { try_files $uri /index.html; }        # SPA fallback
-}
+api/gemini/generate-content.js   ->  POST /api/gemini/generate-content
+api/gemini/status.js             ->  GET  /api/gemini/status
+api/groq/generate-content.js     ->  POST /api/groq/generate-content
+api/groq/status.js               ->  GET  /api/groq/status
+api/stability/headshot.js        ->  POST /api/stability/headshot
+api/stability/status.js          ->  GET  /api/stability/status
 ```
 
-**Option C — managed platform (Vercel/Netlify for the static build + Render/
-Railway/Fly for the Node server):** HTTPS is automatic. If the SPA and API end up
-on **different** origins, set `VITE_API_BASE_URL` to the API's https URL **and**
-add CORS to `server/index.js` (it currently assumes same-origin and sends no
-`Access-Control-Allow-Origin`).
+Each of those files is a thin wrapper; the real logic lives in `api/_lib/`
+(a leading `_` tells Vercel not to treat those files as endpoints). The local dev
+server, `server/index.js`, imports **the same handlers** — so local and
+production cannot drift apart.
 
-- ⬜ Certificate installed and auto-renewing
-- ⬜ HTTP→HTTPS redirect verified (`curl -I http://your-domain.com` → `301`)
-- ⬜ HSTS header present (`curl -I https://your-domain.com` shows `strict-transport-security`)
-- ⬜ `ENFORCE_HTTPS=true` set on the server
+**HTTPS is automatic** — Vercel provisions and renews the certificate and serves
+HTTPS only. `vercel.json` adds HSTS plus `X-Content-Type-Options`,
+`Referrer-Policy` and `X-Frame-Options` at the edge. There is nothing to
+configure and no reverse proxy to run.
+
+**CORS is a non-issue**: the SPA and the functions are served from the same
+origin, so `VITE_API_BASE_URL` stays empty and requests are relative.
+
+### Deploy steps
+- ⬜ Push the `beta` branch to GitHub.
+- ⬜ On vercel.com: **Add New → Project → import the repo**. It should detect
+  Vite automatically (`vercel.json` also states it explicitly).
+- ⬜ Add the environment variables from §2 **before** the first deploy, or the
+  build will succeed but every AI call will fail.
+- ⬜ Deploy, then run the §4 smoke tests against the live URL.
+
+> **Free-tier caveats.** Hobby gives 300s max function duration (a full CV
+> generation measures ~2.5s, so there is plenty of headroom) and 1M invocations.
+> But Hobby is limited to **non-commercial, personal use** under Vercel's fair-use
+> terms — if Aikee AI starts charging, move to Pro or another host.
+
+### Local development (unchanged)
+Two terminals, exactly as before — no Vercel CLI needed:
+```bash
+npm run server   # local API on :8787
+npm run dev      # Vite on :5173, proxies /api -> :8787
+```
 
 ---
 
 ## 4. "API routes reject requests without a valid email" (task #6)
 
-✅ Already enforced in `server/index.js` — no action needed, but here's how to
+✅ Already enforced in `api/_lib/auth.js` — no action needed, but here's how to
 **confirm** it after deploy:
 
 - Every paid route (`/api/gemini/generate-content`, `/api/stability/headshot`,
   `/api/groq/generate-content`) calls `authorize()` first:
-  - no / invalid Supabase token → **401**
+  - no / invalid Supabase token → **401** (`missing_token` / `invalid_token`)
   - valid token but email **not** on `beta_allowlist` → **403 `not_allowlisted`**
+  - allowlisted but past their 24h window → **403 `beta_window_closed`**
   - allowlisted but over the cap (full-CV only) → **429 `limit_reached`**
+- The gate is **fail-closed**: `BETA_REQUIRE_AUTH` defaults to on, and only the
+  exact string `"false"` disables it.
+- A full-CV credit is consumed **only after** a generation actually succeeds, so a
+  failed or timed-out request never costs a tester one of their two.
+- The three `GET /api/*/status` routes are intentionally public, but they now only
+  report whether a key is *present* — none of them calls a provider, so they cost
+  nothing and can't be abused to burn your quota.
 - Smoke test (should return 401, proving no anonymous access):
   ```bash
   curl -i -X POST https://your-domain.com/api/gemini/generate-content \
@@ -146,6 +189,15 @@ add CORS to `server/index.js` (it currently assumes same-origin and sends no
 - ⬜ Confirm 401 with no token, and a real allowlisted tester can generate exactly
   `BETA_FULL_CV_LIMIT` CVs, then gets the limit message on the next attempt.
 
+> **Known trade-off, honestly stated.** Because credits are consumed after success
+> rather than reserved up front, a tester who fires several generations *at the
+> same time* can exceed the cap by up to (concurrent requests − 1): each request
+> checks the count before any of them increments it. This was a deliberate swap —
+> the previous consume-then-refund design relied on a refund RPC that was callable
+> straight from the browser, which made the cap bypassable entirely. Closing the
+> concurrency gap too would need request-scoped reservations with expiry, which is
+> more machinery than a 24-hour beta justifies.
+
 ---
 
 ## 5. Final polish
@@ -153,14 +205,16 @@ add CORS to `server/index.js` (it currently assumes same-origin and sends no
 - ✅ Header rebuilt (task #3): SVG icons, real avatar, error-only AI status, crash-guarded step bar.
 - ✅ Footer real links + beta note (task #5) — pending your `site.js` values.
 - ✅ `DebugAuthStatus` is commented out in `BuilderApp.jsx` (import + render) — leave it off.
-- ⬜ Build the production bundle: `npm run build` (outputs to `dist/`), deploy `dist/` behind the proxy above.
-- ⬜ Start the API server with the env vars from §2 (`node server/index.js`), ideally under a process manager (pm2/systemd) so it restarts on crash.
+- ✅ API restructured for Vercel: `api/**` functions over a shared `api/_lib/` core.
+- ⬜ Confirm the build passes locally: `npm run build`. Vercel runs the same command.
 
 ---
 
 ## Quick deploy order
 1. Run `beta_launch.sql`, add tester emails, run `verify_rls.sql` (all PASS).
-2. Set server + client env vars (§2); fill `site.js`.
-3. `npm run build`.
-4. Bring up the reverse proxy with TLS (§3) and start the API server.
-5. Run the §3 and §4 smoke tests. Invite testers. 🎉
+2. Fill `site.js`.
+3. Verify locally: `npm run build`, `npm run test:readbody`, then `npm run server`
+   + `npm run dev` and click through a real generation.
+4. Push the `beta` branch to GitHub.
+5. Import the repo on vercel.com, add the §2 env vars, deploy.
+6. Run the §4 smoke test against the live URL. Invite testers. 🎉

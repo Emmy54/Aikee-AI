@@ -1,7 +1,11 @@
 node_modules/
+
+# Secrets — never commit. Broad glob so .env.production etc. can't slip through;
+# .env.example is the one intentional exception (key names only, no values).
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
 dist/
 build/
 *.log
@@ -12,6 +16,9 @@ build/
 .vscode/
 .agents/
 skills-lock.json
+
+# Vercel CLI local state (contains project/org ids)
+.vercel/
 
 # Separate Remotion promo project (kept in its own repo, not the web app)
 video/

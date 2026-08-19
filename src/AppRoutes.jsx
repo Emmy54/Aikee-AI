@@ -55,6 +55,54 @@ function WaitlistScreen({ email, onSignOut }) {
   );
 }
 
+// Shown once a tester's access window has elapsed. Their 24 hours start at their
+// FIRST SIGN-IN, so this is per-tester rather than a global cut-off. As with the
+// waitlist screen, this is the friendly explanation — the server independently
+// rejects every paid call once the window closes.
+function BetaClosedScreen({ email, onSignOut }) {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: colors.surface,
+        padding: "1.5rem",
+      }}
+    >
+      <style>{css}</style>
+      <div
+        className="card"
+        style={{ maxWidth: "34rem", textAlign: "center", padding: "3rem 2.5rem" }}
+      >
+        <div className="step-tag" style={{ justifyContent: "center" }}>
+          Aikee AI · Private Beta
+        </div>
+        <h1 style={{ marginBottom: "0.75rem" }}>The beta test has closed</h1>
+        <p className="subtitle" style={{ marginBottom: "1.5rem" }}>
+          Thank you for helping us test Aikee AI! Your testing window
+          {email ? (
+            <>
+              {" "}for <strong style={{ color: colors.onSurface }}>{email}</strong>
+            </>
+          ) : null}{" "}
+          has now ended, so the builder is closed. We're reading every piece of
+          feedback and folding it into the next release — we'll be in touch when
+          the full version is ready.
+        </p>
+        <button
+          className="btn btn-primary"
+          style={{ maxWidth: "16rem", margin: "0 auto" }}
+          onClick={onSignOut}
+        >
+          Sign out
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Protected Route wrapper
 function ProtectedRoute({ children, user, isLoading, onSignOut }) {
   if (isLoading) {
@@ -73,6 +121,12 @@ function ProtectedRoute({ children, user, isLoading, onSignOut }) {
   // Beta gate (task #4): signed in but not allowlisted → waitlist screen.
   if (user.allowlisted === false) {
     return <WaitlistScreen email={user.email} onSignOut={onSignOut} />;
+  }
+
+  // Access window elapsed → closed screen. Checked after the allowlist gate so a
+  // waitlisted user never sees "closed" for a window that never started.
+  if (user.betaWindowExpired === true) {
+    return <BetaClosedScreen email={user.email} onSignOut={onSignOut} />;
   }
 
   return children;
@@ -100,21 +154,30 @@ export default function AppRoutes() {
           : authUser.email?.split('@')[0] || 'User',
       };
 
-      // Beta gate: is this tester's email on the allowlist? (task #4)
-      // This drives the waitlist screen only — the SERVER independently enforces
-      // the allowlist on every paid API call, so we FAIL OPEN here: a transient
+      // Beta gate: allowlist membership + the 24-hour access window (task #4).
+      // get_beta_session STARTS the tester's clock on first call, which is what
+      // makes "24 hours from first sign-in" work — and it is write-once, so
+      // reloading the page can never restart or extend it.
+      //
+      // This drives the waitlist / closed screens only. The SERVER independently
+      // enforces both on every paid API call, so we FAIL OPEN here: a transient
       // RPC error must not lock out a legitimate tester. `rpc()` is not an
       // auth.* call, so it's safe to run from here / the auth callback.
       try {
-        const { data, error } = await supabase.rpc('get_my_generation_status');
+        const { data, error } = await supabase.rpc('get_beta_session');
         const status = Array.isArray(data) ? data[0] : data;
         userWithProfile.allowlisted = error ? true : status?.allowlisted !== false;
+        userWithProfile.betaWindowExpired = error
+          ? false
+          : status?.window_expired === true;
+        userWithProfile.betaExpiresAt = status?.expires_at ?? null;
         userWithProfile.generationsUsed = status?.used ?? 0;
         userWithProfile.generationsCap = status?.cap ?? 2;
         userWithProfile.generationsRemaining = status?.remaining ?? null;
       } catch (statusErr) {
-        console.warn('Allowlist status check failed (failing open):', statusErr?.message);
+        console.warn('Beta session check failed (failing open):', statusErr?.message);
         userWithProfile.allowlisted = true;
+        userWithProfile.betaWindowExpired = false;
       }
 
       return userWithProfile;
@@ -125,6 +188,7 @@ export default function AppRoutes() {
         firstName: authUser.email?.split('@')[0] || 'User',
         lastName: authUser.email?.split('@')[0] || 'User',
         allowlisted: true,
+        betaWindowExpired: false,
       };
     }
   };

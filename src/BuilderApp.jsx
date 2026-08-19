@@ -22,6 +22,8 @@ import { colors, css } from "./constants/theme";
 import { BETA_NOTE, CONTACT_EMAIL, SOCIAL_LINKS } from "./constants/site";
 // Utils
 import { getQuestionsForRoleMeta, generateSkillsFromAnswers, generateExperienceBullets } from "./utils/helpers";
+import { compressImageFile, formatBytes } from "./utils/imageCompression";
+import { buildResumeFilename } from "./utils/filename";
 
 // Components
 import Header from "./components/Header";
@@ -120,6 +122,10 @@ export default function BuilderApp({ initialUser }) {
   const [address, setAddress] = useState("");
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [photoError, setPhotoError] = useState("");
+  // Set when localStorage autosave fails (almost always a full quota). Shown to
+  // the user rather than only logged — see the persistence effect below.
+  const [autosaveError, setAutosaveError] = useState("");
 
   // Form data - Step 3: Skills
   const [skillAnswers, setSkillAnswers] = useState({});
@@ -414,8 +420,20 @@ export default function BuilderApp({ initialUser }) {
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    } catch (error) {
+      if (autosaveError) setAutosaveError("");    } catch (error) {
+      // Almost always QuotaExceededError. This used to be logged and swallowed,
+      // which meant autosave could stop working with no sign to the user until
+      // they refreshed and found their work gone. Surface it instead.
       console.error("Failed to save form data:", error);
+      const quotaExceeded =
+        error?.name === "QuotaExceededError" ||
+        error?.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+        error?.code === 22;
+      setAutosaveError(
+        quotaExceeded
+          ? "Your browser's storage is full, so your progress isn't being saved automatically. Try removing your photo, or use Save CV to store it to your account."
+          : "Your progress isn't being saved automatically right now. Use Save CV to store it to your account."
+      );
     }
   }, [
     jobTitle,
@@ -799,6 +817,12 @@ export default function BuilderApp({ initialUser }) {
         setFullAIError(
           `You've used all ${cap} of your beta CV generations. Thanks for helping us test Aikee AI!`
         );
+      } else if (error?.code === "beta_window_closed") {
+        // The window can elapse mid-session, so this is reachable without a
+        // reload. Reloading lands them on the closed screen in AppRoutes.
+        setFullAIError(
+          "Your beta testing window has closed. Thanks for helping us test Aikee AI!"
+        );
       } else if (error?.isNotAllowlisted || error?.code === "not_allowlisted") {
         setFullAIError(
           "This account isn't on the Aikee AI beta list yet. Join the waitlist and we'll be in touch."
@@ -850,7 +874,7 @@ export default function BuilderApp({ initialUser }) {
       await html2pdf()
         .set({
           margin: 5,
-          filename: "cv.pdf",
+          filename: buildResumeFilename(name),
           image: { type: "jpeg", quality: 1 },
           html2canvas: {
             scale: 3,
@@ -880,13 +904,31 @@ export default function BuilderApp({ initialUser }) {
   // FORM HANDLERS
   // ============================================================================
 
-  const handlePhotoUpload = (e) => {
+  // Photos are downscaled before they ever become a data URL. The raw file from
+  // a phone camera is 3–8MB, and this string gets written to localStorage on
+  // every form change, saved to Supabase, and embedded in the PDF — a full-size
+  // photo blows the ~5MB localStorage quota and silently kills autosave.
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPhoto(file);
-      const reader = new FileReader();
-      reader.onload = (ev) => setPhotoPreview(ev.target.result);
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    setPhotoError("");
+    setPhoto(file);
+
+    try {
+      const { dataUrl, width, height, originalBytes, compressedBytes } =
+        await compressImageFile(file);
+      console.log(
+        `[photo] ${formatBytes(originalBytes)} -> ${formatBytes(compressedBytes)} (${width}x${height})`
+      );
+      setPhotoPreview(dataUrl);
+    } catch (err) {
+      console.error("Photo processing failed:", err);
+      setPhoto(null);
+      setPhotoPreview(null);
+      setPhotoError(
+        err?.message || "Couldn't process that image. Please try a different photo."
+      );
     }
   };
 
@@ -1015,6 +1057,25 @@ export default function BuilderApp({ initialUser }) {
         />
 
         <main className="main">
+          {autosaveError && (
+            <div
+              role="alert"
+              style={{
+                width: "100%",
+                maxWidth: "62.5rem",
+                marginBottom: "1rem",
+                padding: "0.75rem 1rem",
+                borderRadius: "0.5rem",
+                background: "#fffaeb",
+                color: "#93370d",
+                border: "1px solid #fedf89",
+                fontSize: "0.8125rem",
+                lineHeight: 1.5,
+              }}
+            >
+              {autosaveError}
+            </div>
+          )}
           <div
             className={isFinalStep ? undefined : "builder-split"}
             data-mobile-view={isFinalStep ? undefined : mobileView}
@@ -1069,6 +1130,7 @@ export default function BuilderApp({ initialUser }) {
               setAddress={setAddress}
               photoPreview={photoPreview}
               handlePhotoUpload={handlePhotoUpload}
+              photoError={photoError}
               next={next}
               back={back}
             />

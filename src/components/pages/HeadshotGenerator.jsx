@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { colors } from '../../constants/theme';
 import { generateHeadshotFromImage } from '../../services/stabilityService';
+import { compressImageFile } from '../../utils/imageCompression';
 
 
 export default function HeadshotGenerator({ onBack, stabilityStatus }) {
@@ -11,22 +12,28 @@ export default function HeadshotGenerator({ onBack, stabilityStatus }) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingError, setProcessingError] = useState(null);
 
-  const handleImageUpload = (e) => {
+  // Downscale on the way in. Several full-size phone photos held as base64 data
+  // URLs at once is a lot of memory for no benefit — the headshot is rendered at
+  // 512px anyway (see generateHeadshotFromImage).
+  const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files || []);
-    
-    files.forEach((file) => {
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-          setUploadedImages((prev) => [...prev, {
-            id: Date.now() + Math.random(),
-            src: ev.target.result,
-            fileName: file.name,
-          }]);
-        };
-        reader.readAsDataURL(file);
+    setProcessingError(null);
+
+    for (const file of files) {
+      if (!file.type?.startsWith('image/')) continue;
+      try {
+        const { dataUrl } = await compressImageFile(file);
+        setUploadedImages((prev) => [
+          ...prev,
+          { id: `${file.name}-${prev.length}-${file.size}`, src: dataUrl, fileName: file.name },
+        ]);
+      } catch (err) {
+        console.error('Image upload failed:', err);
+        setProcessingError(
+          `Couldn't read "${file.name}". ${err?.message || 'Please try a different image.'}`
+        );
       }
-    });
+    }
   };
 
   const removeImage = (id) => {

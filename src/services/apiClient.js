@@ -42,15 +42,44 @@ export class ApiError extends Error {
   }
 }
 
+// Refresh a token that is about to expire rather than sending it and losing the
+// round trip. Supabase access tokens live ~1 hour, and a tester who leaves the
+// tab open (very likely during a 24-hour beta window) would otherwise hit
+// "your session has expired" mid-generation.
+const EXPIRY_MARGIN_MS = 60_000;
+
 // Reads the current session token WITHOUT calling supabase.auth.getUser().
 // getSession() reads the locally-cached session, so it's cheap and — crucially —
 // safe to call from user-triggered flows. (Never call it from inside
 // onAuthStateChange; that deadlocks the GoTrue lock. These service functions
-// run on button clicks / effects, not in the auth callback.)
-const getAccessToken = async () => {
+// run on button clicks / effects, not in the auth callback — which is also why
+// refreshSession() below is safe here.)
+const getAccessToken = async ({ forceRefresh = false } = {}) => {
   try {
+    if (forceRefresh) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.warn("[apiClient] Token refresh failed:", error.message);
+        return null;
+      }
+      return data?.session?.access_token || null;
+    }
+
     const { data } = await supabase.auth.getSession();
-    return data?.session?.access_token || null;
+    const session = data?.session;
+    if (!session) return null;
+
+    const expiresInMs = session.expires_at
+      ? session.expires_at * 1000 - Date.now()
+      : Infinity;
+    if (expiresInMs < EXPIRY_MARGIN_MS) {
+      const { data: refreshed, error } = await supabase.auth.refreshSession();
+      if (!error && refreshed?.session?.access_token) {
+        return refreshed.session.access_token;
+      }
+    }
+
+    return session.access_token || null;
   } catch (err) {
     console.warn("[apiClient] Could not read session token:", err?.message || err);
     return null;
@@ -60,17 +89,32 @@ const getAccessToken = async () => {
 // POST JSON to an /api route with the Supabase Bearer token attached.
 // Returns the parsed JSON body on success; throws ApiError on any non-2xx.
 export const authedPostJson = async (path, body) => {
-  const token = await getAccessToken();
-  const headers = { "Content-Type": "application/json" };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  const send = async (token) => {
+    const headers = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body ?? {}),
-  });
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body ?? {}),
+    });
 
-  const data = await response.json().catch(() => ({}));
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+  };
+
+  let { response, data } = await send(await getAccessToken());
+
+  // Retry once with a force-refreshed token. Safe to retry: the server verifies
+  // auth BEFORE doing any provider work or consuming a generation credit, so a
+  // 401 guarantees nothing happened — no double generation, no double charge.
+  if (response.status === 401) {
+    const refreshed = await getAccessToken({ forceRefresh: true });
+    if (refreshed) {
+      ({ response, data } = await send(refreshed));
+    }
+  }
+
   if (!response.ok) {
     throw new ApiError(response.status, data);
   }
